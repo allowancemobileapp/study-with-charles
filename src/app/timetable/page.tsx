@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,6 +48,41 @@ interface QAItem {
 }
 
 export default function TimetablePage() {
+
+  return (
+    <Suspense fallback={<div>Loading timetable...</div>}>
+      <TimetableContent />
+    </Suspense>
+  );
+}
+
+function TimetableContent() {
+  // This component now uses useSearchParams and is wrapped in Suspense
+  // Move state and effects that depend on searchParams here
+
+  const { aiResult, isLoggedIn, isSubscribed, lastAiInput } = useAppStore();
+  const searchParams = useSearchParams();
+  const router = useRouter(); // For clearing searchParams
+  const { toast } = useToast();
+
+   useEffect(() => {
+    if (searchParams.get('action') === 'schedule_result' && aiResult?.result) {
+      setIsFormOpen(true);
+      setEditingEvent(null); 
+      setTitle("Review AI Result for Scheduling");
+      setAssociatedResultText(aiResult.result); 
+      setCurrentOriginalFormat(lastAiInput?.desiredFormat || 'Unknown'); // Get format from lastAiInput
+      
+      setDescription(`AI generated content (Format: ${lastAiInput?.desiredFormat || 'Unknown'}) for subject: ${lastAiInput?.subjectTitle || 'N/A'}. Preview: ${aiResult.result.substring(0,30)}...`);
+      const today = new Date();
+      setDate(format(today, 'yyyy-MM-dd'));
+      setTime(format(today, 'HH:mm'));
+      setNotifyByEmail(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, aiResult?.result, lastAiInput, router]);
+
+  // Existing state and handlers below...
   const [events, setEvents] = useState<TimetableEvent[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimetableEvent | null>(null);
@@ -60,11 +95,6 @@ export default function TimetablePage() {
   const [associatedResultText, setAssociatedResultText] = useState(''); 
   const [currentOriginalFormat, setCurrentOriginalFormat] = useState<DesiredFormatType | string | null | undefined>(null);
 
-
-  const { aiResult, isLoggedIn, isSubscribed, lastAiInput } = useAppStore();
-  const searchParams = useSearchParams();
-  const router = useRouter(); // For clearing searchParams
-  const { toast } = useToast();
 
   const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
   const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
@@ -89,26 +119,6 @@ export default function TimetablePage() {
     }
   }, [events, isLoggedIn]);
 
-
-  useEffect(() => {
-    if (searchParams.get('action') === 'schedule_result' && aiResult?.result) {
-      setIsFormOpen(true);
-      setEditingEvent(null); 
-      setTitle("Review AI Result for Scheduling");
-      setAssociatedResultText(aiResult.result); 
-      setCurrentOriginalFormat(lastAiInput?.desiredFormat || 'Unknown'); // Get format from lastAiInput
-      
-      setDescription(`AI generated content (Format: ${lastAiInput?.desiredFormat || 'Unknown'}) for subject: ${lastAiInput?.subjectTitle || 'N/A'}. Preview: ${aiResult.result.substring(0,30)}...`);
-      const today = new Date();
-      setDate(format(today, 'yyyy-MM-dd'));
-      setTime(format(today, 'HH:mm'));
-      setNotifyByEmail(false);
-      
-      // Clear the action from searchParams to prevent re-triggering
-      // router.replace('/timetable', { scroll: false }); // Or router.push without the param
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, aiResult?.result, lastAiInput, router]);
 
   const resetForm = () => {
     setTitle('');
