@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useActionState, useState } from 'react';
+import React, { useEffect, useActionState, useState, useTransition } from 'react'; // Added useTransition
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,7 @@ export default function AiResultsPage() {
   const { toast } = useToast();
 
   const [generateMoreFormState, generateMoreAction, isGeneratingMore] = useActionState(processAssignmentAction, initialGenerateMoreState);
+  const [isPendingTransition, startTransition] = useTransition(); // For generateMoreAction
   
   const [currentDisplayResult, setCurrentDisplayResult] = useState(aiResult?.result || "");
 
@@ -80,7 +81,6 @@ export default function AiResultsPage() {
         const newQaText = generateMoreFormState.result.result;
         let combinedQaArray: QAItem[] = [];
 
-        // Get current Q&A from the store's aiResult
         const currentStoredQaText = useAppStore.getState().aiResult?.result;
 
         if (currentStoredQaText && isQAResult(currentStoredQaText)) {
@@ -99,12 +99,11 @@ export default function AiResultsPage() {
           }
         }
         
-        // Deduplicate Q&A based on Question content
         const uniqueQaMap = new Map<string, QAItem>();
         combinedQaArray.forEach(item => {
-          if (item.Question) { // Ensure question exists to be used as a key
+          if (item.Question) { 
             uniqueQaMap.set(item.Question, item);
-          } else if (item.Answer) { // Fallback for items that might only have an answer (unlikely for Q&A but safe)
+          } else if (item.Answer) { 
              uniqueQaMap.set(`answer_only_${uniqueQaMap.size}`, item);
           }
         });
@@ -113,9 +112,7 @@ export default function AiResultsPage() {
         if (uniqueCombinedQaArray.length > 0) {
           const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
           setAiResult({ result: combinedResultString }); 
-          // setCurrentDisplayResult will be updated by the other useEffect listening to aiResult
         } else {
-          // Fallback if somehow nothing could be combined or parsed, just show the new result
           setAiResult(generateMoreFormState.result);
         }
 
@@ -132,7 +129,7 @@ export default function AiResultsPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generateMoreFormState]); // Dependencies: setAiResult, isSubscribed, setShowVideoAd, toast are stable from hooks/store.
+  }, [generateMoreFormState]);
 
 
   const getFormattedContent = (): string => {
@@ -146,8 +143,8 @@ export default function AiResultsPage() {
             `Question ${index + 1}:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}\n\n---\n\n`
         ).join('');
       } catch (e) {
-        console.error("getFormattedContent: Could not parse Q&A JSON after check. Error:", e);
-         // Fallback to raw text if parsing fails despite isQAResult check (should be rare)
+        console.error("getFormattedContent: Could not parse Q&A JSON. Error:", e, "Problematic JSON:", resultText.substring(0,200));
+         // Fallback to raw text
       }
     }
     return resultText; 
@@ -194,6 +191,7 @@ export default function AiResultsPage() {
   };
 
   const handleSchedule = () => {
+    // aiResult is already in the store, timetable page will pick it up
     router.push('/timetable?action=schedule_result');
   };
 
@@ -217,7 +215,9 @@ export default function AiResultsPage() {
     formData.append('subjectTitle', lastAiInput.subjectTitle);
     formData.append('desiredFormat', 'Question Answering'); 
 
-    generateMoreAction(formData);
+    startTransition(() => { // Wrap action call in startTransition
+      generateMoreAction(formData);
+    });
   };
 
 
@@ -242,7 +242,6 @@ export default function AiResultsPage() {
         );
       } catch (e) {
         console.error("AIResultsPage renderContent: Could not parse result as Q&A JSON. Error:", e, "Problematic JSON:", resultText.substring(0,500));
-        // Fallback to raw text if parsing fails, ensuring user sees something
         return (
           <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
             {resultText}
@@ -251,7 +250,6 @@ export default function AiResultsPage() {
       }
     }
 
-    // Default to rendering as plain text if not Q&A
     return (
       <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
         {resultText}
@@ -259,7 +257,7 @@ export default function AiResultsPage() {
     );
   };
 
-  if (!aiResult && !isGeneratingMore) { 
+  if (!aiResult && !isGeneratingMore && !isPendingTransition) { 
     return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <Card className="w-full max-w-md text-center bg-card/70 border-destructive/50 shadow-lg">
@@ -280,7 +278,7 @@ export default function AiResultsPage() {
     );
   }
   
-  if (generateMoreFormState?.errors?.general && !isGeneratingMore) {
+  if (generateMoreFormState?.errors?.general && !isGeneratingMore && !isPendingTransition) {
      return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <Alert variant="destructive" className="max-w-md">
@@ -297,6 +295,8 @@ export default function AiResultsPage() {
      )
   }
 
+  const isLoading = isGeneratingMore || isPendingTransition;
+
   return (
     <div className="container mx-auto py-8 px-4">
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm">
@@ -310,7 +310,7 @@ export default function AiResultsPage() {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[400px] w-full rounded-md border border-border p-4 bg-secondary/30">
-            {isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult))) ? 
+            {isLoading && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult))) ? 
               <div className="flex flex-col items-center justify-center h-full">
                  <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                  <p className="text-muted-foreground">Generating more Q&A...</p>
@@ -331,11 +331,11 @@ export default function AiResultsPage() {
             {isQAResult(currentDisplayResult) && (
               <Button 
                 onClick={handleGenerateMore} 
-                disabled={isGeneratingMore || !lastAiInput}
+                disabled={isLoading || !lastAiInput}
                 variant="outline"
                 className="flex-grow sm:flex-grow-0 border-accent text-accent hover:bg-accent/10"
               >
-                {isGeneratingMore ? (
+                {isLoading ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />

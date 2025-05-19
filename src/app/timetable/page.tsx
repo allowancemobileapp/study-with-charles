@@ -8,10 +8,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck } from "lucide-react";
+import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye } from "lucide-react"; // Added Eye
 import { useAppStore } from '@/lib/store';
 import { useSearchParams } from 'next/navigation';
-import { format } from 'date-fns'; // For date formatting
+import { format } from 'date-fns'; 
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -20,15 +20,30 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface TimetableEvent {
   id: string;
   title: string;
   description: string;
-  date: string; // Store as YYYY-MM-DD
-  time: string; // Store as HH:MM
-  associatedResult?: string; // Placeholder for AI result content or ID
+  date: string; 
+  time: string; 
+  associatedResult?: string; 
   notifyByEmail?: boolean;
+}
+
+interface QAItem { // For parsing Q&A in view modal
+  Question: string | null | undefined;
+  Answer: string | null | undefined;
 }
 
 export default function TimetablePage() {
@@ -41,11 +56,15 @@ export default function TimetablePage() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notifyByEmail, setNotifyByEmail] = useState(false);
-  const [associatedResultText, setAssociatedResultText] = useState('');
+  const [associatedResultText, setAssociatedResultText] = useState(''); // Stores full AI result text for form
 
   const { aiResult, isLoggedIn, isSubscribed } = useAppStore();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+
+  // For View Result Modal
+  const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
+  const [isViewResultModalOpen, setIsViewResultModalOpen] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -54,7 +73,7 @@ export default function TimetablePage() {
         setEvents(JSON.parse(storedEvents));
       }
     } else {
-      setEvents([]); // Clear events if not logged in
+      setEvents([]); 
     }
   }, [isLoggedIn]);
 
@@ -70,11 +89,19 @@ export default function TimetablePage() {
   useEffect(() => {
     if (searchParams.get('action') === 'schedule_result' && aiResult?.result) {
       setIsFormOpen(true);
-      setTitle("Review AI Result");
-      setAssociatedResultText(aiResult.result.substring(0, 200) + "..."); // Preview of result
-      // Clear AI result from store or mark as scheduled to prevent re-scheduling same item automatically
+      setEditingEvent(null); // Ensure we are adding a new event
+      setTitle("Review AI Result for Scheduling");
+      setAssociatedResultText(aiResult.result); // Store FULL AI result
+      // Reset other form fields for a new event based on AI result
+      setDescription(`AI generated content for subject: ${aiResult.result.substring(0,30)}...`);
+      const today = new Date();
+      setDate(format(today, 'yyyy-MM-dd'));
+      setTime(format(today, 'HH:mm'));
+      setNotifyByEmail(false);
+      // Clear the action from searchParams or useAppStore to prevent re-triggering if needed (not strictly necessary here)
     }
-  }, [searchParams, aiResult]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, aiResult?.result]); // Depend on aiResult.result for re-trigger if it changes
 
   const resetForm = () => {
     setTitle('');
@@ -104,8 +131,8 @@ export default function TimetablePage() {
       description,
       date,
       time,
-      associatedResult: associatedResultText || undefined,
-      notifyByEmail: isSubscribed ? notifyByEmail : false, // Only allow if subscribed
+      associatedResult: associatedResultText || undefined, // Save the full AI result text
+      notifyByEmail: isSubscribed ? notifyByEmail : false, 
     };
 
     if (editingEvent) {
@@ -125,7 +152,7 @@ export default function TimetablePage() {
     setDate(event.date);
     setTime(event.time);
     setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
-    setAssociatedResultText(event.associatedResult || '');
+    setAssociatedResultText(event.associatedResult || ''); // Load full result for editing
     setIsFormOpen(true);
   };
 
@@ -134,7 +161,24 @@ export default function TimetablePage() {
     toast({ title: "Event Deleted", description: "The event has been removed from your timetable.", variant: "destructive" });
   };
   
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const todayFormatted = format(new Date(), 'yyyy-MM-dd');
+
+  const handleViewResult = (resultText: string) => {
+    setViewResultModalContent(resultText);
+    setIsViewResultModalOpen(true);
+  };
+
+  const isQAResultForModal = (text: string): boolean => {
+    if (!text) return false;
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) && parsed.length > 0 && 
+             typeof parsed[0] === 'object' && parsed[0] !== null &&
+             'Question' in parsed[0] && 'Answer' in parsed[0];
+    } catch (e) {
+      return false;
+    }
+  };
 
 
   return (
@@ -147,13 +191,13 @@ export default function TimetablePage() {
               My Timetable
             </CardTitle>
           </div>
-          <Button onClick={() => { setIsFormOpen(!isFormOpen); setEditingEvent(null); if(isFormOpen) resetForm(); }} variant="outline" className="border-accent text-accent hover:bg-accent/10 hover:text-accent">
+          <Button onClick={() => { setIsFormOpen(!isFormOpen); if(isFormOpen) resetForm(); else if (editingEvent) setEditingEvent(null); }} variant="outline" className="border-accent text-accent hover:bg-accent/10 hover:text-accent">
             <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen ? "Close Form" : "Add New Event"}
           </Button>
         </CardHeader>
         <CardDescription className="px-6 pb-2 text-sm text-muted-foreground">
             Organize your academic life. Add events, deadlines, and study sessions. 
-            Email notifications are a premium feature. Social media notifications are conceptual.
+            Email notifications are a premium feature.
         </CardDescription>
 
         {isFormOpen && (
@@ -167,7 +211,7 @@ export default function TimetablePage() {
                 </div>
                  <div className="space-y-2">
                   <Label htmlFor="event-date" className="text-foreground">Date</Label>
-                  <Input id="event-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} min={today} required />
+                  <Input id="event-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} min={todayFormatted} required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="event-time" className="text-foreground">Time</Label>
@@ -180,37 +224,41 @@ export default function TimetablePage() {
               </div>
               {associatedResultText && (
                  <div className="space-y-2">
-                    <Label htmlFor="associated-result" className="text-foreground">Associated Result (Preview)</Label>
-                    <Textarea id="associated-result" value={associatedResultText} readOnly className="bg-muted/50 h-20" />
+                    <Label htmlFor="associated-result-preview" className="text-foreground">Associated AI Result (Preview)</Label>
+                    <Textarea id="associated-result-preview" value={associatedResultText.substring(0,200) + (associatedResultText.length > 200 ? "..." : "")} readOnly className="bg-muted/50 h-20" />
                  </div>
               )}
               <div className="flex items-center space-x-2">
                 <TooltipProvider>
                   <Tooltip delayDuration={100}>
                     <TooltipTrigger asChild>
-                      {/* This div is necessary for TooltipTrigger with disabled child */}
-                      <div className={!isSubscribed ? 'cursor-not-allowed' : ''}> 
+                      <div className={!isSubscribed ? 'cursor-not-allowed relative' : 'relative'}> 
                         <Checkbox
                           id="notify-email"
                           checked={isSubscribed ? notifyByEmail : false}
-                          onCheckedChange={(checked) => isSubscribed && setNotifyByEmail(checked as boolean)}
+                          onCheckedChange={(checked) => {
+                            if (isSubscribed) {
+                              setNotifyByEmail(checked as boolean);
+                            }
+                          }}
                           disabled={!isSubscribed}
                           aria-describedby={!isSubscribed ? "premium-feature-email-tt" : undefined}
                         />
+                         {!isSubscribed && <div className="absolute inset-0" />}
                       </div>
                     </TooltipTrigger>
                     {!isSubscribed && (
-                      <TooltipContent id="premium-feature-email-tt">
-                        <p className="text-xs">Email notifications are a premium feature. <Link href="/pricing" className="underline text-primary">Upgrade now!</Link></p>
+                      <TooltipContent id="premium-feature-email-tt" side="bottom">
+                        <p className="text-xs">Email notifications are a premium feature. <Link href="/pricing" className="underline text-primary font-semibold">Upgrade now!</Link></p>
                       </TooltipContent>
                     )}
                   </Tooltip>
                 </TooltipProvider>
-                <Label htmlFor="notify-email" className={`text-sm font-medium leading-none ${!isSubscribed ? 'opacity-50' : ''} text-foreground`}>
+                <Label htmlFor="notify-email" className={`text-sm font-medium leading-none ${!isSubscribed ? 'opacity-50 cursor-not-allowed' : ''} text-foreground`}>
                   Notify by Email <span className="text-xs text-muted-foreground">(Premium)</span>
                 </Label>
               </div>
-              {!isSubscribed && <p className="text-xs text-muted-foreground mt-1">This is a conceptual feature. Actual email sending requires a premium subscription and backend setup.</p>}
+              {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">Conceptual: Email notification would be sent for this event.</p>}
               
               <div className="flex justify-end space-x-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
@@ -242,18 +290,44 @@ export default function TimetablePage() {
                         {format(new Date(event.date + 'T' + event.time), 'EEE, MMM d, yyyy')} at {format(new Date(event.date + 'T' + event.time), 'p')}
                       </p>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(event)} className="text-blue-400 hover:text-blue-300">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(event.id)} className="text-destructive hover:text-destructive/80">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <div className="flex space-x-1">
+                      {event.associatedResult && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                               <Button variant="ghost" size="icon" onClick={() => handleViewResult(event.associatedResult!)} className="text-sky-400 hover:text-sky-300">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top"><p>View Associated Result</p></TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                             <Button variant="ghost" size="icon" onClick={() => handleEdit(event)} className="text-blue-400 hover:text-blue-300">
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top"><p>Edit Event</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                       <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={() => handleDelete(event.id)} className="text-destructive hover:text-destructive/80">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top"><p>Delete Event</p></TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                   </CardHeader>
                   {(event.description || (event.notifyByEmail && isSubscribed)) && (
                     <CardContent className="pt-0 pb-3 space-y-1">
-                      {event.description && <p className="text-sm text-foreground">{event.description}</p>}
+                      {event.description && <p className="text-sm text-foreground whitespace-pre-wrap">{event.description}</p>}
                       {event.notifyByEmail && isSubscribed && (
                         <div className="flex items-center text-xs text-sky-400">
                             <MailCheck className="mr-1.5 h-3.5 w-3.5" />
@@ -273,6 +347,48 @@ export default function TimetablePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* View Result Modal */}
+      <Dialog open={isViewResultModalOpen} onOpenChange={setIsViewResultModalOpen}>
+        <DialogContent className="max-w-2xl min-h-[300px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Scheduled AI Result</DialogTitle>
+            <DialogDescription>Details of the AI result associated with this event.</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="flex-grow w-full rounded-md border p-4 my-4 bg-background">
+            {viewResultModalContent && (() => {
+              if (isQAResultForModal(viewResultModalContent)) {
+                try {
+                  const parsed = JSON.parse(viewResultModalContent) as QAItem[];
+                  return (
+                    <div>
+                      {parsed.map((qa, index) => (
+                        <div key={index} className="mb-6 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
+                          <p className="font-semibold text-primary mb-1">Question:</p>
+                          <p className="whitespace-pre-wrap mb-3 text-foreground">{String(qa.Question ?? 'N/A')}</p>
+                          <p className="font-semibold text-accent mb-1">Answer:</p>
+                          <p className="whitespace-pre-wrap text-foreground">{String(qa.Answer ?? 'N/A')}</p>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } catch (e) {
+                  console.error("ViewResultModal: Error parsing Q&A JSON", e, "Problematic JSON:", viewResultModalContent.substring(0,100));
+                  return <pre className="whitespace-pre-wrap text-sm text-foreground">{viewResultModalContent}</pre>;
+                }
+              }
+              return <pre className="whitespace-pre-wrap text-sm text-foreground">{viewResultModalContent}</pre>;
+            })()}
+          </ScrollArea>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+
