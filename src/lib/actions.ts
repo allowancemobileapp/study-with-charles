@@ -9,11 +9,17 @@ const AssignmentFormSchema = z.object({
     message: "File data must be a valid data URI.",
   }).optional(),
   subjectTitle: z.string().min(1, "Subject title is required."),
-  desiredFormat: z.enum(['Text', 'Summary', 'Question Answering', 'Explain']), // Added 'Explain'
+  desiredFormat: z.enum(['Text', 'Summary', 'Question Answering', 'Explain']),
   userTextQuery: z.string().optional(),
-}).refine(data => data.fileDataUri || (data.userTextQuery && data.userTextQuery.trim().length > 0), {
+}).refine(data => {
+    // Check if fileDataUri is present and appears to be a valid data URI structure (basic check)
+    const hasFileData = data.fileDataUri && data.fileDataUri.startsWith('data:');
+    // Check if userTextQuery is present and not just whitespace
+    const hasTextQuery = data.userTextQuery && data.userTextQuery.trim().length > 0;
+    return hasFileData || hasTextQuery;
+  }, {
   message: "Please provide either a file or a text query.",
-  path: ["general"], // Changed path to general for better error display
+  path: ["general"], 
 });
 
 
@@ -30,8 +36,7 @@ export type AssignmentFormState = {
 };
 
 export async function processAssignmentAction(
-  // prevState: AssignmentFormState | undefined, // prevState is not explicitly used here by useActionState pattern.
-  _prevState: unknown, // useActionState will pass the previous state here.
+  _prevState: unknown, 
   formData: FormData
 ): Promise<AssignmentFormState> {
   console.log("Server Action: processAssignmentAction initiated.");
@@ -54,15 +59,17 @@ export async function processAssignmentAction(
 
     if (!validatedFields.success) {
       console.error("Server Action: Validation failed.", validatedFields.error.flatten().fieldErrors);
-      return {
+      const validationErrorState: AssignmentFormState = {
         errors: validatedFields.error.flatten().fieldErrors,
         message: "Validation failed. Please check your inputs.",
         result: null,
       };
+      console.log("Server Action: Returning validation error state:", JSON.stringify(validationErrorState).substring(0,500));
+      return validationErrorState;
     }
 
     const { fileDataUri, subjectTitle, desiredFormat, userTextQuery } = validatedFields.data;
-    console.log("Server Action: Validation successful. Input to AI flow:", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri?.length, userTextQuery });
+    console.log("Server Action: Validation successful. Input to AI flow:", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri?.length, userTextQueryPresent: !!userTextQuery });
 
     const aiInput: SummarizeContentInput = {
       fileDataUri: fileDataUri || undefined, 
@@ -73,22 +80,26 @@ export async function processAssignmentAction(
     
     console.log("Server Action: Calling AI flow summarizeContent...");
     const resultFromFlow = await summarizeContent(aiInput);
-    console.log("Server Action: AI flow completed. Result from flow (first 300 chars):", JSON.stringify(resultFromFlow, null, 2).substring(0, 300) + "...");
+    console.log("Server Action: AI flow completed. Result from flow (first 300 chars of result field):", resultFromFlow && resultFromFlow.result ? resultFromFlow.result.substring(0, 300) + "..." : "N/A or empty result field");
     
-    return { 
+    const successState: AssignmentFormState = { 
       result: resultFromFlow, 
       message: "Processing successful!",
       errors: {}, 
     };
+    console.log("Server Action: Returning success state:", JSON.stringify(successState).substring(0,500) + (JSON.stringify(successState).length > 500 ? "..." : ""));
+    return successState;
 
   } catch (error: unknown) { 
-    console.error("CRITICAL ERROR in processAssignmentAction (server): Details below.");
+    console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.");
     let errorMessage = "An unexpected server error occurred during AI processing. Please try again.";
     
     if (error instanceof Error) {
         console.error("Error Name:", error.name);
         console.error("Error Message:", error.message);
         if (error.stack) console.error("Error Stack:", error.stack);
+        // Use the error message from the caught error if it's a simple Error instance
+        // This is often more informative than a generic message.
         errorMessage = `AI Processing Error: ${error.message}`; 
     } else if (typeof error === 'string') {
         console.error("Error (string):", error);
@@ -97,10 +108,12 @@ export async function processAssignmentAction(
         console.error("Unknown error type in server action:", error);
     }
     
-    return {
-      message: errorMessage, // Pass the specific error message
+    const errorState: AssignmentFormState = {
+      message: errorMessage,
       result: null,
-      errors: { general: [errorMessage] } // Populate general errors
+      errors: { general: [errorMessage] } // Keep general error for UI display
     };
+    console.log("Server Action: Returning error state:", JSON.stringify(errorState));
+    return errorState;
   }
 }

@@ -20,7 +20,7 @@ const SummarizeContentInputSchema = z.object({
     ).optional(),
   subjectTitle: z.string().describe('The title of the subject or course.'),
   desiredFormat: z
-    .enum(['Text', 'Summary', 'Question Answering', 'Explain']) // Added 'Explain'
+    .enum(['Text', 'Summary', 'Question Answering', 'Explain']) 
     .describe('The desired format of the summarized content.'),
   userTextQuery: z.string().optional().describe('An optional direct text query or question from the user.'),
 });
@@ -65,7 +65,7 @@ const summarizeContentFlow = ai.defineFlow(
         } else if (input.desiredFormat === 'Summary') {
             mainInstruction = `Based on the user's query and the provided file, generate a concise summary that addresses the query using information from the file.`;
         } else if (input.desiredFormat === 'Question Answering') {
-            mainInstruction = `The user has a query: "${input.userTextQuery}". Based on this query AND the provided file, generate 3-5 distinct study questions and their corresponding concise answers relevant to both. The entire output for this task MUST be a single, valid JSON string representing an array of objects, each with "Question" and "Answer" string properties. Example: [{"Question": "Q1 from file related to query?", "Answer": "A1 based on file and query."}] Do NOT include any text, explanations, or markdown formatting outside of this JSON array string.`;
+             mainInstruction = `The user has a query: "${input.userTextQuery}". Based on this query AND the provided file, generate 3-5 distinct study questions and their corresponding concise answers relevant to both. The entire output for this task MUST be a single, valid JSON string representing an array of objects, each with "Question" and "Answer" string properties. Example: [{"Question": "Q1 from file related to query?", "Answer": "A1 based on file and query."}] Do NOT include any text, explanations, or markdown formatting outside of this JSON array string.`;
         } else if (input.desiredFormat === 'Explain') {
             mainInstruction = `Based on the user's query: "${input.userTextQuery}", and using the provided file as context, provide a detailed explanation. Focus on clarity, breaking down complex concepts if necessary, and covering the topic/question comprehensively.`;
         }
@@ -103,7 +103,7 @@ Do not add any conversational preamble or unrelated text to your response.`;
       } else if (input.desiredFormat === 'Summary') {
         mainInstruction = 'Based on the file provided, provide a concise and comprehensive summary of its key content, concepts, and main points. Focus on extracting the core ideas and presenting them clearly.';
       } else if (input.desiredFormat === 'Question Answering') {
-        mainInstruction = `You are an AI study assistant. Based on the provided file content, generate 3-5 distinct study questions and their corresponding concise answers.
+         mainInstruction = `You are an AI study assistant. Based on the provided file content, generate 3-5 distinct study questions and their corresponding concise answers.
 The entire output for this task MUST be a single, valid JSON string.
 This JSON string must represent an array of JavaScript objects.
 Each object in the array MUST have exactly two string properties: "Question" and "Answer".
@@ -119,7 +119,6 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
         mainInstruction = `Based on the provided file content, identify the main topics or key concepts discussed. Then, provide a detailed explanation of these topics/concepts. Your explanation should be clear, comprehensive, and aim to help a student understand the material thoroughly.`;
       }
     } else {
-      // This case should be prevented by form validation in actions.ts
       console.error("AI Flow: summarizeContentFlow - Neither fileDataUri nor userTextQuery provided. This should be caught by validation.");
       throw new Error("No input provided to AI flow. Please provide a file or a text query.");
     }
@@ -130,11 +129,11 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
       console.log("AI Flow: summarizeContentFlow - Calling ai.generate with model 'googleai/gemini-1.5-flash-latest'. Prompt messages preview (first 500 chars):", JSON.stringify(promptMessages, null, 2).substring(0, 500) + "...");
       
       const response = await ai.generate({
-        prompt: promptMessages as PromptData[], // Cast to PromptData[]
+        prompt: promptMessages as PromptData[], 
         model: 'googleai/gemini-1.5-flash-latest', 
         output: { schema: SummarizeContentOutputSchema }, 
         config: {
-          safetySettings: [ // Added safety settings as per previous discussions
+          safetySettings: [ 
             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -143,14 +142,12 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
         },
       });
       
-      console.log("AI Flow: summarizeContentFlow - Raw response from ai.generate (output property, first 500 chars):", JSON.stringify(response.output, null, 2).substring(0, 500) + "...");
-      const output = response.output; // Access output as a property
+      console.log("AI Flow: summarizeContentFlow - Raw response object from ai.generate():", JSON.stringify(response, null, 2).substring(0, 500) + "...");
+      const output = response.output;
 
       if (!output || typeof output.result !== 'string') {
         const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null or undefined';
         console.error('AI Flow: summarizeContentFlow - AI model returned invalid or missing output structure. Output received:', receivedOutput);
-        // It's possible the model returned a block reason or other non-output structure.
-        // Log the full response for more details if this happens.
         console.error('AI Flow: summarizeContentFlow - Full response object from ai.generate():', JSON.stringify(response, null, 2));
         throw new Error('AI model did not return a valid output structure. Expected a JSON object with a "result" string field.');
       }
@@ -158,7 +155,6 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
       return output;
 
     } catch (e: unknown) { 
-      // Log the error with more details before re-throwing
       console.error('CRITICAL ERROR in AI Flow (summarizeContentFlow): Details below.');
       let errorMessage = 'AI flow failed during processing.';
       if (e instanceof Error) {
@@ -166,7 +162,6 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
         console.error('Error Message:', e.message);
         if (e.stack) console.error('Error Stack:', e.stack);
         errorMessage = `AI flow failed: ${e.message}`;
-        // Attempt to log more details if available (e.g., from GoogleGenerativeAIError)
         const anyError = e as any;
         if (anyError.details) console.error('Error Details:', anyError.details);
         if (anyError.status) console.error('Error Status:', anyError.status);
@@ -175,7 +170,6 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
         console.error('Unknown error type caught:', e);
         errorMessage = 'An unknown error occurred in the AI flow processing.';
       }
-      // Re-throw a new, simple Error object to ensure serializability for server actions
       throw new Error(errorMessage);
     }
   }
