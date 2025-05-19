@@ -14,10 +14,10 @@ export function LeftBannerAd() {
     setMounted(true);
   }, []);
 
-  // On the server, storeIsSubscribed is initially false, so the ad will be rendered.
-  // On the client, before useEffect runs, mounted is false, so the ad is also rendered initially.
-  // This ensures the initial client render matches the server render.
-  // After mounting, if the user is subscribed, the component will return null.
+  // On the server, storeIsSubscribed is initially false (from Zustand's default), so the ad will be rendered.
+  // On the client, before useEffect runs (i.e., during initial hydration), mounted is false,
+  // so the ad is also rendered initially. This ensures the initial client render matches the server render.
+  // After mounting, if the user is subscribed, the component will return null, triggering a client-side update.
   if (mounted && storeIsSubscribed) {
     return null;
   }
@@ -43,3 +43,4 @@ export function LeftBannerAd() {
     </aside>
   );
 }
+
