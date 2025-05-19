@@ -24,7 +24,7 @@ const initialState: AssignmentFormState = {
 export function AssignmentForm() {
   const [formState, formAction] = useActionState(processAssignmentAction, initialState);
   const [isPending, startTransition] = useTransition();
-  const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn } = useAppStore();
+  const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,6 +138,11 @@ export function AssignmentForm() {
           icon: <CheckCircle className="text-green-500" />,
         });
         setAiResult(formState.result);
+        setLastAiInput({ // Store the input that led to this successful result
+          subjectTitle: subjectTitle,
+          fileDataUri: fileDataUri,
+          userTextQuery: userTextQuery
+        });
         if (!isSubscribed) {
           setShowVideoAd(true); 
         }
@@ -152,7 +157,7 @@ export function AssignmentForm() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formState, router, isSubscribed, setAiResult, setShowVideoAd, toast, isLoggedIn]);
+  }, [formState, router, isSubscribed, setAiResult, setShowVideoAd, toast, isLoggedIn, setLastAiInput, subjectTitle, fileDataUri, userTextQuery]);
 
 
   return (
@@ -232,7 +237,7 @@ export function AssignmentForm() {
               <SelectContent>
                 <SelectItem value="Text">Text Extraction / Assignment Solver</SelectItem>
                 <SelectItem value="Summary">Summary</SelectItem>
-                <SelectItem value="Question Answering">Generate Q&A</SelectItem>
+                <SelectItem value="Question Answering">Generate Q&amp;A</SelectItem>
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}

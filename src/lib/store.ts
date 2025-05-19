@@ -1,5 +1,5 @@
 
-import type { SummarizeContentOutput } from '@/ai/flows/summarize-content';
+import type { SummarizeContentInput, SummarizeContentOutput } from '@/ai/flows/summarize-content';
 import { create } from 'zustand';
 
 interface AppState {
@@ -12,6 +12,13 @@ interface AppState {
 
   aiResult: SummarizeContentOutput | null;
   setAiResult: (result: SummarizeContentOutput | null) => void;
+
+  lastAiInput: {
+    subjectTitle: string | null;
+    fileDataUri: string | null;
+    userTextQuery: string | null;
+  } | null;
+  setLastAiInput: (input: { subjectTitle: string | null; fileDataUri: string | null; userTextQuery: string | null } | null) => void;
 
   showVideoAd: boolean;
   setShowVideoAd: (show: boolean) => void;
@@ -28,7 +35,9 @@ export const useAppStore = create<AppState>((set) => ({
   aiResult: null,
   setAiResult: (result) => set({ aiResult: result }),
 
-  showVideoAd: false,
-  setShowVideoAd: (show) => set({ showVideoAd: show }),
-}));
+  lastAiInput: null,
+  setLastAiInput: (input) => set({ lastAiInput: input }),
 
+  showVideoAd: false,
+  setShowVideoAd: (show) => set((state) => ({ ...state, showVideoAd: show })),
+}));

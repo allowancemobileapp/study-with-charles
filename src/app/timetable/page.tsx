@@ -13,6 +13,13 @@ import { useAppStore } from '@/lib/store';
 import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns'; // For date formatting
 import { useToast } from '@/hooks/use-toast';
+import Link from 'next/link';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface TimetableEvent {
   id: string;
@@ -36,7 +43,7 @@ export default function TimetablePage() {
   const [notifyByEmail, setNotifyByEmail] = useState(false);
   const [associatedResultText, setAssociatedResultText] = useState('');
 
-  const { aiResult, isLoggedIn } = useAppStore();
+  const { aiResult, isLoggedIn, isSubscribed } = useAppStore();
   const searchParams = useSearchParams();
   const { toast } = useToast();
 
@@ -98,7 +105,7 @@ export default function TimetablePage() {
       date,
       time,
       associatedResult: associatedResultText || undefined,
-      notifyByEmail,
+      notifyByEmail: isSubscribed ? notifyByEmail : false, // Only allow if subscribed
     };
 
     if (editingEvent) {
@@ -117,7 +124,7 @@ export default function TimetablePage() {
     setDescription(event.description);
     setDate(event.date);
     setTime(event.time);
-    setNotifyByEmail(event.notifyByEmail || false);
+    setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
     setAssociatedResultText(event.associatedResult || '');
     setIsFormOpen(true);
   };
@@ -146,7 +153,7 @@ export default function TimetablePage() {
         </CardHeader>
         <CardDescription className="px-6 pb-2 text-sm text-muted-foreground">
             Organize your academic life. Add events, deadlines, and study sessions. 
-            Note: Email and social media notifications are conceptual placeholders and require further backend development to be functional.
+            Email notifications are a premium feature. Social media notifications are conceptual.
         </CardDescription>
 
         {isFormOpen && (
@@ -178,11 +185,33 @@ export default function TimetablePage() {
                  </div>
               )}
               <div className="flex items-center space-x-2">
-                <Checkbox id="notify-email" checked={notifyByEmail} onCheckedChange={(checked) => setNotifyByEmail(checked as boolean)} />
-                <Label htmlFor="notify-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground">
-                  Notify by Email (Conceptual)
+                <TooltipProvider>
+                  <Tooltip delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      {/* This div is necessary for TooltipTrigger with disabled child */}
+                      <div className={!isSubscribed ? 'cursor-not-allowed' : ''}> 
+                        <Checkbox
+                          id="notify-email"
+                          checked={isSubscribed ? notifyByEmail : false}
+                          onCheckedChange={(checked) => isSubscribed && setNotifyByEmail(checked as boolean)}
+                          disabled={!isSubscribed}
+                          aria-describedby={!isSubscribed ? "premium-feature-email-tt" : undefined}
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    {!isSubscribed && (
+                      <TooltipContent id="premium-feature-email-tt">
+                        <p className="text-xs">Email notifications are a premium feature. <Link href="/pricing" className="underline text-primary">Upgrade now!</Link></p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+                <Label htmlFor="notify-email" className={`text-sm font-medium leading-none ${!isSubscribed ? 'opacity-50' : ''} text-foreground`}>
+                  Notify by Email <span className="text-xs text-muted-foreground">(Premium)</span>
                 </Label>
               </div>
+              {!isSubscribed && <p className="text-xs text-muted-foreground mt-1">This is a conceptual feature. Actual email sending requires a premium subscription and backend setup.</p>}
+              
               <div className="flex justify-end space-x-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
                 <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
@@ -222,10 +251,10 @@ export default function TimetablePage() {
                       </Button>
                     </div>
                   </CardHeader>
-                  {(event.description || event.notifyByEmail) && (
+                  {(event.description || (event.notifyByEmail && isSubscribed)) && (
                     <CardContent className="pt-0 pb-3 space-y-1">
                       {event.description && <p className="text-sm text-foreground">{event.description}</p>}
-                      {event.notifyByEmail && (
+                      {event.notifyByEmail && isSubscribed && (
                         <div className="flex items-center text-xs text-sky-400">
                             <MailCheck className="mr-1.5 h-3.5 w-3.5" />
                             <span>Email notification active (conceptual)</span>
