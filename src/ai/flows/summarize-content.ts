@@ -41,21 +41,24 @@ const summarizeContentFlow = ai.defineFlow(
     outputSchema: SummarizeContentOutputSchema,
   },
   async (input) => {
-    const introText = `You are an AI assistant helping students review lecture notes and documents.
-You will receive a file (provided as media content), the subject title, and the desired format for the result.
+    const introText = `You are an AI assistant helping students review lecture notes and documents for the course: "${input.subjectTitle}".
+You will receive a file (provided as media content) and the desired format for the result.
 Your task is to process the file and provide the result in the requested format.
-
-Subject Title: ${input.subjectTitle}
 Desired Output Format: ${input.desiredFormat}
 `;
 
     let taskInstruction = "";
     if (input.desiredFormat === 'Text') {
-      taskInstruction = 'Based on the file provided, extract and provide all textual content. If the file is an image, describe the image in detail or extract any visible text. The result should be the raw text or description.';
+      taskInstruction = 'Based on the file provided, extract and provide all relevant textual content to help answer potential assignment questions or research tasks. If the file is an image, describe the image in detail or extract any visible text. The result should be comprehensive text or a detailed description. This tool is intended to help with assignments requiring research by extracting relevant text from documents.';
     } else if (input.desiredFormat === 'Summary') {
-      taskInstruction = 'Based on the file provided, provide a concise summary of its content.';
+      taskInstruction = 'Based on the file provided, provide a concise and comprehensive summary of its key content, concepts, and main points.';
     } else if (input.desiredFormat === 'Question Answering') {
-      taskInstruction = "Based on the file provided, and since a specific question was not given for the 'Question Answering' format, please provide a general analysis and detailed summary of the uploaded file's key information, concepts, and themes.";
+      taskInstruction = `Based on the file provided, generate a series of questions that cover the key information, concepts, and themes within the document. For each question, provide a clear and concise answer directly underneath it. Format each question and answer pair as follows:
+
+Question: [Your generated question here]
+Answer: [Your generated answer here]
+
+Ensure the questions are relevant for someone studying for an exam on this material.`;
     } else {
       // Fallback for any unexpected format, though schema validation should prevent this.
       taskInstruction = `Process the content and provide it in the specified format: ${input.desiredFormat}.`;
@@ -69,6 +72,7 @@ Desired Output Format: ${input.desiredFormat}
     ];
     
     try {
+      console.log("AI Flow: summarizeContentFlow - Calling ai.generate with model 'googleai/gemini-1.5-flash-latest'");
       const response = await ai.generate({
         prompt: promptMessages as PromptData[],
         model: 'googleai/gemini-1.5-flash-latest', 
@@ -83,18 +87,17 @@ Desired Output Format: ${input.desiredFormat}
         },
       });
       
-      const output = response.output; // Corrected: use .output instead of .output()
+      const output = response.output;
 
       if (!output || typeof output.result !== 'string') {
         const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null';
         console.error('AI model returned invalid or missing output structure. Output received:', receivedOutput);
-        // Ensure a plain Error is thrown for better serialization by server actions
         throw new Error('AI model did not return a valid output structure. Expected a JSON object with a "result" string field.');
       }
+      console.log("AI Flow: summarizeContentFlow - Successfully received and parsed output.");
       return output;
-    } catch (e: unknown) { // Catch unknown type for robust error handling
+    } catch (e: unknown) { 
       console.error('CRITICAL ERROR in AI Flow (summarizeContentFlow):', e);
-      // Create a new, simple Error object to ensure serializability
       if (e instanceof Error) {
         throw new Error(`AI flow failed: ${e.message}`);
       }
@@ -102,4 +105,3 @@ Desired Output Format: ${input.desiredFormat}
     }
   }
 );
-

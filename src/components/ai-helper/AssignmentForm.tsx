@@ -51,10 +51,10 @@ export function AssignmentForm() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
         toast({
           title: "File Too Large",
-          description: "Please upload a file smaller than 5MB.",
+          description: "Please upload a file smaller than 10MB.",
           variant: "destructive",
         });
         setSelectedFile(null);
@@ -102,7 +102,7 @@ export function AssignmentForm() {
 
   useEffect(() => {
     if (formState) {
-      if (formState.errors && Object.keys(formState.errors).length > 0) {
+      if (formState.errors && Object.keys(formState.errors).length > 0 && !formState.result) {
         const errorMessages = Object.values(formState.errors).flat().join(' ') || (formState.message || "An error occurred.");
         toast({
           title: "Error",
@@ -125,7 +125,7 @@ export function AssignmentForm() {
         }
         router.push('/ai-results'); 
       } 
-      else if (formState.message) {
+      else if (formState.message && !formState.result && !(formState.errors && Object.keys(formState.errors).length > 0)) {
          toast({
           title: "Info", 
           description: formState.message,
@@ -146,20 +146,20 @@ export function AssignmentForm() {
           AI Assignment Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Upload your schoolwork (PDF, JPG, PNG) and let our AI assist you.
+          Upload your schoolwork (PDF, JPG, PNG, up to 10MB) and let our AI assist you.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="file-upload" className="text-foreground flex items-center">
-              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File
+              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File (Max 10MB)
             </Label>
             <Input
               id="file-upload"
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png"
+              accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx" // Added common text file types
               onChange={handleFileChange}
               className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent"
               required
@@ -197,9 +197,9 @@ export function AssignmentForm() {
                 <SelectValue placeholder="Select format..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Text">Text</SelectItem>
+                <SelectItem value="Text">Text Extraction / Assignment Solver</SelectItem>
                 <SelectItem value="Summary">Summary</SelectItem>
-                <SelectItem value="Question Answering">Question Answering</SelectItem>
+                <SelectItem value="Question Answering">Generate Q&A</SelectItem>
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
