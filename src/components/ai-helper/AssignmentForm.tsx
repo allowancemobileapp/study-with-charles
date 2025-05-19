@@ -23,7 +23,7 @@ const initialState: AssignmentFormState = {
 
 export function AssignmentForm() {
   const [formState, formAction, isFormActionPending] = useActionState(processAssignmentAction, initialState);
-  const [, startTransition] = useTransition(); // For formAction
+  const [, startTransition] = useTransition(); 
   
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
@@ -35,7 +35,6 @@ export function AssignmentForm() {
   const [desiredFormat, setDesiredFormat] = useState<DesiredFormatType | undefined>();
   const [userTextQuery, setUserTextQuery] = useState('');
 
-  // Consolidate pending state for the button
   const isProcessing = isFormActionPending;
 
 
@@ -173,7 +172,7 @@ export function AssignmentForm() {
           😊
         </div>
         <CardTitle className="text-3xl font-bold text-primary">
-          AI Helper
+          Hi, I'm Charles. Let's study...
         </CardTitle>
         <CardDescription className="text-muted-foreground">
           Type a question, upload schoolwork (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
@@ -267,4 +266,3 @@ export function AssignmentForm() {
     </Card>
   );
 }
-
