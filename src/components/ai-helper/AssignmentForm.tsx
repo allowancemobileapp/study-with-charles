@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
+import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
+// Removed useFormStatus from 'react-dom'
 import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
@@ -20,25 +20,9 @@ const initialState: AssignmentFormState = {
   errors: {},
 };
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity text-primary-foreground">
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
-        </>
-      ) : (
-        <>
-          <Brain className="mr-2 h-4 w-4" /> Get Results
-        </>
-      )}
-    </Button>
-  );
-}
-
 export function AssignmentForm() {
   const [formState, formAction] = useActionState(processAssignmentAction, initialState);
+  const [isPending, startTransition] = useTransition(); // Added useTransition
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -47,6 +31,23 @@ export function AssignmentForm() {
   const [fileDataUri, setFileDataUri] = useState<string | null>(null);
   const [subjectTitle, setSubjectTitle] = useState('');
   const [desiredFormat, setDesiredFormat] = useState<'Text' | 'Summary' | 'Question Answering' | undefined>();
+
+  // SubmitButton now uses isPending from useTransition
+  function SubmitButton() {
+    return (
+      <Button type="submit" disabled={isPending} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity text-primary-foreground">
+        {isPending ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
+          </>
+        ) : (
+          <>
+            <Brain className="mr-2 h-4 w-4" /> Get Results
+          </>
+        )}
+      </Button>
+    );
+  }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -71,7 +72,8 @@ export function AssignmentForm() {
     }
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  // handleSubmit is now synchronous, formAction call wrapped in startTransition
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isLoggedIn) {
       toast({
@@ -93,9 +95,11 @@ export function AssignmentForm() {
     const formData = new FormData();
     formData.append('fileDataUri', fileDataUri);
     formData.append('subjectTitle', subjectTitle);
-    formData.append('desiredFormat', desiredFormat);
+    formData.append('desiredFormat', desiredFormat); // desiredFormat is checked above, so it's not undefined
     
-    formAction(formData);
+    startTransition(() => {
+      formAction(formData);
+    });
   };
 
   useEffect(() => {
@@ -120,12 +124,7 @@ export function AssignmentForm() {
     if (formState?.result) {
       setAiResult(formState.result);
       if (!isSubscribed) {
-        setShowVideoAd(true); // Show ad first
-        // Navigation will be handled after ad is skipped/closed if needed, or directly if subscribed
-        // For now, let's assume VideoAdModal handles the post-ad flow or the user navigates manually
-        // or we navigate after a slight delay to let the modal logic run.
-        // A robust way is to have a callback from VideoAdModal.
-        // For simplicity now, let's navigate immediately and assume VideoAdModal is a blocking overlay.
+        setShowVideoAd(true); 
         router.push('/ai-results');
       } else {
         router.push('/ai-results');
