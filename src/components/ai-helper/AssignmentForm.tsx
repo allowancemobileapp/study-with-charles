@@ -6,10 +6,11 @@ import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare, Pilcrow } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +32,7 @@ export function AssignmentForm() {
   const [fileDataUri, setFileDataUri] = useState<string | null>(null);
   const [subjectTitle, setSubjectTitle] = useState('');
   const [desiredFormat, setDesiredFormat] = useState<'Text' | 'Summary' | 'Question Answering' | undefined>();
+  const [userTextQuery, setUserTextQuery] = useState('');
 
   function SubmitButton() {
     return (
@@ -68,6 +70,9 @@ export function AssignmentForm() {
         setFileDataUri(loadEvent.target?.result as string);
       };
       reader.readAsDataURL(file);
+    } else {
+      setSelectedFile(null);
+      setFileDataUri(null);
     }
   };
 
@@ -81,17 +86,30 @@ export function AssignmentForm() {
       });
       return;
     }
-    if (!fileDataUri || !subjectTitle || !desiredFormat) {
+    if (!fileDataUri && !userTextQuery.trim()) {
+      toast({
+        title: "Input Required",
+        description: "Please upload a file or enter a text query.",
+        variant: "destructive",
+      });
+      return;
+    }
+     if (!subjectTitle || !desiredFormat) {
       toast({
         title: "Missing Information",
-        description: "Please upload a file, enter a subject title, and select a desired format.",
+        description: "Please enter a subject title and select a desired format.",
         variant: "destructive",
       });
       return;
     }
 
     const formData = new FormData();
-    formData.append('fileDataUri', fileDataUri);
+    if (fileDataUri) {
+      formData.append('fileDataUri', fileDataUri);
+    }
+    if (userTextQuery.trim()) {
+      formData.append('userTextQuery', userTextQuery.trim());
+    }
     formData.append('subjectTitle', subjectTitle);
     formData.append('desiredFormat', desiredFormat);
     
@@ -146,26 +164,40 @@ export function AssignmentForm() {
           AI Assignment Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Upload your schoolwork (PDF, JPG, PNG, up to 4MB) and let our AI assist you.
+          Upload schoolwork (PDF, JPG, PNG, up to 4MB), type a question, or both!
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="file-upload" className="text-foreground flex items-center">
-              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File (Max 4MB)
+              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File (Optional, Max 4MB)
             </Label>
             <Input
               id="file-upload"
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx" // Added common text file types
+              accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
               onChange={handleFileChange}
               className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent"
-              required
             />
             {selectedFile && <p className="text-sm text-muted-foreground">Selected: {selectedFile.name}</p>}
              {formState?.errors?.fileDataUri && <p className="text-sm text-destructive">{formState.errors.fileDataUri.join(', ')}</p>}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
+              <Pilcrow className="mr-2 h-5 w-5 text-primary" /> Or Type Your Question/Text (Optional)
+            </Label>
+            <Textarea
+              id="user-text-query"
+              placeholder="e.g., Explain the theory of relativity, or paste assignment questions here..."
+              value={userTextQuery}
+              onChange={(e) => setUserTextQuery(e.target.value)}
+              className="focus-visible:ring-accent"
+              rows={4}
+            />
+            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive">{formState.errors.userTextQuery.join(', ')}</p>}
           </div>
 
           <div className="space-y-2">
@@ -205,7 +237,7 @@ export function AssignmentForm() {
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
           </div>
           
-          {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat) && (
+          {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat || formState?.errors?.userTextQuery) && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
@@ -222,3 +254,5 @@ export function AssignmentForm() {
     </Card>
   );
 }
+
+    

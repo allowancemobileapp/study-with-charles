@@ -7,10 +7,15 @@ import { z } from "zod";
 const AssignmentFormSchema = z.object({
   fileDataUri: z.string().refine(val => val.startsWith('data:'), {
     message: "File data must be a valid data URI.",
-  }),
+  }).optional(),
   subjectTitle: z.string().min(1, "Subject title is required."),
   desiredFormat: z.enum(['Text', 'Summary', 'Question Answering']),
+  userTextQuery: z.string().optional(),
+}).refine(data => data.fileDataUri || (data.userTextQuery && data.userTextQuery.trim().length > 0), {
+  message: "Please provide either a file or a text query.",
+  // path: ["fileDataUri"], // You can choose a general path or a specific one like fileDataUri or userTextQuery
 });
+
 
 export type AssignmentFormState = {
   message?: string | null;
@@ -19,7 +24,8 @@ export type AssignmentFormState = {
     fileDataUri?: string[];
     subjectTitle?: string[];
     desiredFormat?: string[];
-    general?: string[]; // For errors not specific to a field
+    userTextQuery?: string[];
+    general?: string[]; 
   };
 };
 
@@ -30,14 +36,16 @@ export async function processAssignmentAction(
   console.log("Server Action: processAssignmentAction initiated.");
   
   const rawFormData = {
-    fileDataUri: formData.get("fileDataUri"),
+    fileDataUri: formData.get("fileDataUri") || undefined, // Ensure undefined if not present
     subjectTitle: formData.get("subjectTitle"),
     desiredFormat: formData.get("desiredFormat"),
+    userTextQuery: formData.get("userTextQuery") || undefined, // Ensure undefined if not present
   };
   console.log("Server Action: Raw form data received:", {
     subjectTitle: rawFormData.subjectTitle,
     desiredFormat: rawFormData.desiredFormat,
     fileDataUriLength: typeof rawFormData.fileDataUri === 'string' ? rawFormData.fileDataUri.length : 0,
+    userTextQueryPresent: !!rawFormData.userTextQuery,
   });
 
   try {
@@ -52,13 +60,14 @@ export async function processAssignmentAction(
       };
     }
 
-    const { fileDataUri, subjectTitle, desiredFormat } = validatedFields.data;
-    console.log("Server Action: Validation successful. Input to AI flow:", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri.length });
+    const { fileDataUri, subjectTitle, desiredFormat, userTextQuery } = validatedFields.data;
+    console.log("Server Action: Validation successful. Input to AI flow:", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri?.length, userTextQuery });
 
     const aiInput: SummarizeContentInput = {
-      fileDataUri,
+      fileDataUri: fileDataUri || undefined, // Pass undefined if not present
       subjectTitle,
       desiredFormat,
+      userTextQuery: userTextQuery || undefined, // Pass undefined if not present
     };
     
     console.log("Server Action: Calling AI flow summarizeContent...");
@@ -68,17 +77,17 @@ export async function processAssignmentAction(
     return { 
       result: resultFromFlow, 
       message: "Processing successful!",
-      errors: {}, // Explicitly clear errors on success
+      errors: {}, 
     };
 
   } catch (error: unknown) { 
-    console.error("CRITICAL ERROR in processAssignmentAction (server):");
+    console.error("CRITICAL ERROR in processAssignmentAction (server): Details below.");
     let errorMessage = "An unexpected server error occurred during AI processing. Please try again.";
     
     if (error instanceof Error) {
-        console.error("Error name:", error.name);
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        if (error.stack) console.error("Error Stack:", error.stack);
         errorMessage = `AI Processing Error: ${error.message}`; 
     } else if (typeof error === 'string') {
         console.error("Error (string):", error);
@@ -94,3 +103,5 @@ export async function processAssignmentAction(
     };
   }
 }
+
+    

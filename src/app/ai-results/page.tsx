@@ -22,24 +22,23 @@ export default function AiResultsPage() {
 
   const getFormattedContent = (): string => {
     if (!aiResult || !aiResult.result) return "";
+    const resultText = aiResult.result;
+
     try {
-      const parsed = JSON.parse(aiResult.result);
-      if (
-        Array.isArray(parsed) &&
-        parsed.length > 0 &&
-        typeof parsed[0] === 'object' &&
-        parsed[0] !== null &&
-        'Question' in parsed[0] &&
-        'Answer' in parsed[0]
-      ) {
-        return (parsed as QAItem[]).map((qa: QAItem) =>
-            `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}\n\n`
-        ).join('');
+      // Check if it's likely Q&A JSON
+      if (resultText.trim().startsWith('[') && resultText.includes('"Question":') && resultText.includes('"Answer":')) {
+        const parsed = JSON.parse(resultText) as QAItem[];
+        if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'object' && parsed[0] !== null && 'Question' in parsed[0] && 'Answer' in parsed[0]) {
+          return parsed.map((qa: QAItem, index: number) =>
+              `Question ${index + 1}:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}\n\n---\n\n`
+          ).join('');
+        }
       }
     } catch (e) {
-      // Not JSON or not expected Q&A format, return raw result
+      // Not valid Q&A JSON, fall through to return raw text
+      console.warn("getFormattedContent: Could not parse result as Q&A JSON. Error:", e);
     }
-    return aiResult.result;
+    return resultText; // Fallback for non-Q&A or if parsing failed
   };
 
   const handleDownload = () => {
@@ -56,7 +55,7 @@ export default function AiResultsPage() {
       toast({
         title: "Download Started",
         description: "Your AI result is downloading.",
-        className: "bg-blue-500/10 border-blue-500",
+        className: "bg-primary/10 border-primary",
       });
     }
   };
@@ -89,40 +88,43 @@ export default function AiResultsPage() {
   const renderContent = () => {
     if (!aiResult || !aiResult.result) return <p className="text-muted-foreground">No result content to display.</p>;
 
-    try {
-      const parsedResult = JSON.parse(aiResult.result);
+    const resultText = aiResult.result;
+    let isLikelyQnAJson = false;
 
-      if (
-        Array.isArray(parsedResult) &&
-        parsedResult.length > 0 &&
-        typeof parsedResult[0] === 'object' &&
-        parsedResult[0] !== null &&
-        'Question' in parsedResult[0] &&
-        'Answer' in parsedResult[0]
-      ) {
-        // Render as Q&A if it matches the structure
-        return (
-          <div>
-            {(parsedResult as QAItem[]).map((qa, index) => (
-              <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
-                <p className="text-lg font-semibold text-primary">Question:</p>
-                <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
-                <p className="text-lg font-semibold text-accent">Answer:</p>
-                <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
-              </div>
-            ))}
-          </div>
-        );
-      }
-    } catch (e) {
-      // If JSON.parse fails or structure is not as expected, fall through to render as pre.
-      console.error("AIResultsPage: Could not parse result as Q&A JSON or structure mismatch. Rendering as raw text. Error:", e);
+    // Heuristic to check if it *might* be Q&A JSON before attempting to parse
+    if (resultText.trim().startsWith('[') && resultText.includes('"Question":') && resultText.includes('"Answer":')) {
+      isLikelyQnAJson = true;
     }
 
-    // Fallback for non-JSON, non-Q&A JSON, or if parsing/validation fails
+    if (isLikelyQnAJson) {
+      try {
+        const parsedResult = JSON.parse(resultText) as QAItem[];
+        // Further validation that it is indeed an array of QA items
+        if (Array.isArray(parsedResult) && parsedResult.length > 0 && typeof parsedResult[0] === 'object' && parsedResult[0] !== null && 'Question' in parsedResult[0] && 'Answer' in parsedResult[0]) {
+          return (
+            <div>
+              {parsedResult.map((qa, index) => (
+                <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
+                  <p className="text-lg font-semibold text-primary">Question:</p>
+                  <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
+                  <p className="text-lg font-semibold text-accent">Answer:</p>
+                  <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
+                </div>
+              ))}
+            </div>
+          );
+        }
+      } catch (e) {
+        // JSON.parse failed or structure was not as expected after all.
+        // The console error you saw is from this catch block. It's okay, we'll fall back.
+        console.error("AIResultsPage: Could not parse result as Q&A JSON. Error:", e, "Displaying raw text.");
+      }
+    }
+
+    // Fallback for non-Q&A JSON, plain text, or if parsing/validation above fails
     return (
       <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
-        {aiResult.result}
+        {resultText}
       </pre>
     );
   };
@@ -179,3 +181,5 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
+    
