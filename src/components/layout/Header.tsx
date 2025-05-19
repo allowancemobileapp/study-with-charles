@@ -2,11 +2,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image"; // Added based on previous usage for avatar
+import React from 'react'; // Import React
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, BotMessageSquare, UserCircle, LogIn, LogOut, Crown, DollarSign, Info, Mail } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import Image from "next/image";
 
 const navLinks = [
   { href: "/", label: "AI Helper", icon: BotMessageSquare },
@@ -82,15 +83,19 @@ export function Header() {
             <SheetContent side="right" className="w-[300px] sm:w-[400px] bg-background p-6">
               <nav className="flex flex-col space-y-4">
                 {navLinks.map((link) => {
-                  const IconComponent = link.icon;
+                  const IconToRender = link.icon;
                   return (
                     <Link
                       key={link.label}
                       href={link.href}
                       className="flex items-center space-x-3 rounded-md p-2 text-lg transition-colors hover:bg-accent/10 hover:text-accent"
                     >
-                      {/* Check if IconComponent is a function (Lucide component) or an element (inline SVG) */}
-                      {typeof IconComponent === 'function' ? <IconComponent className="h-6 w-6" /> : IconComponent}
+                      {React.isValidElement(IconToRender)
+                        ? IconToRender // If it's already a React element (like an inline SVG), render it directly.
+                        : (IconToRender && typeof IconToRender === 'function' // Otherwise, if it's a component function (like Lucide icons)
+                            ? <IconToRender className="h-6 w-6" /> // Instantiate it.
+                            : null) // Fallback for other unexpected types.
+                      }
                       <span>{link.label}</span>
                     </Link>
                   );
