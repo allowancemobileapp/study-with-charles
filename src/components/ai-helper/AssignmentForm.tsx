@@ -22,8 +22,9 @@ const initialState: AssignmentFormState = {
 };
 
 export function AssignmentForm() {
-  const [formState, formAction, isPending] = useActionState(processAssignmentAction, initialState);
-  const [, startTransition] = useTransition();
+  const [formState, formAction, isFormActionPending] = useActionState(processAssignmentAction, initialState);
+  const [, startTransition] = useTransition(); // For formAction
+  
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -34,10 +35,14 @@ export function AssignmentForm() {
   const [desiredFormat, setDesiredFormat] = useState<DesiredFormatType | undefined>();
   const [userTextQuery, setUserTextQuery] = useState('');
 
+  // Consolidate pending state for the button
+  const isProcessing = isFormActionPending;
+
+
   function SubmitButton() {
     return (
-      <Button type="submit" disabled={isPending} className="w-full bg-primary hover:bg-primary/90 transition-opacity text-primary-foreground">
-        {isPending ? (
+      <Button type="submit" disabled={isProcessing} className="w-full bg-primary hover:bg-primary/90 transition-opacity text-primary-foreground">
+        {isProcessing ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
           </>
@@ -201,7 +206,7 @@ export function AssignmentForm() {
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
               onChange={handleFileChange}
-              className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent"
+              className="file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent"
             />
             {selectedFile && <p className="text-sm text-muted-foreground">Selected: {selectedFile.name}</p>}
              {formState?.errors?.fileDataUri && <p className="text-sm text-destructive">{formState.errors.fileDataUri.join(', ')}</p>}
@@ -262,3 +267,4 @@ export function AssignmentForm() {
     </Card>
   );
 }
+
