@@ -27,41 +27,59 @@ export async function processAssignmentAction(
   prevState: AssignmentFormState | undefined,
   formData: FormData
 ): Promise<AssignmentFormState> {
-  const validatedFields = AssignmentFormSchema.safeParse({
-    fileDataUri: formData.get("fileDataUri"),
-    subjectTitle: formData.get("subjectTitle"),
-    desiredFormat: formData.get("desiredFormat"),
-  });
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: "Validation failed. Please check your inputs.",
-    };
-  }
-
-  const { fileDataUri, subjectTitle, desiredFormat } = validatedFields.data;
-
   try {
+    const validatedFields = AssignmentFormSchema.safeParse({
+      fileDataUri: formData.get("fileDataUri"),
+      subjectTitle: formData.get("subjectTitle"),
+      desiredFormat: formData.get("desiredFormat"),
+    });
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors,
+        message: "Validation failed. Please check your inputs.",
+        result: null, // Ensure result is explicitly null for error states
+      };
+    }
+
+    const { fileDataUri, subjectTitle, desiredFormat } = validatedFields.data;
+
     const aiInput: SummarizeContentInput = {
       fileDataUri,
       subjectTitle,
       desiredFormat,
     };
     
-    const result = await summarizeContent(aiInput);
+    // The summarizeContent flow is expected to handle its own errors and
+    // throw a standard Error if something goes wrong, or return SummarizeContentOutput.
+    // Any error thrown by summarizeContent will be caught by the catch block below.
+    const resultFromFlow = await summarizeContent(aiInput);
+    
+    // If the flow completes successfully, resultFromFlow should be valid.
+    // The flow itself checks for !output || typeof output.result !== 'string'
+    // and throws an error if that condition is met.
+    return { 
+      result: resultFromFlow, 
+      message: "Processing successful!",
+      // errors can be undefined if there are no errors
+    };
 
-    // The flow now throws an error if result is invalid, so this specific check might be redundant
-    // but kept for safety.
-    if (!result || !result.result) {
-      return { message: "AI processing failed to return a result.", errors: { general: ["AI processing failed to return a valid result structure."] } };
+  } catch (error) { 
+    console.error("Error in processAssignmentAction (server):", error); // Log the full error on the server
+    
+    let errorMessage = "An unexpected server error occurred. Please check server logs for details and try again.";
+    if (error instanceof Error) {
+        // Use the message from the error caught, which might be from the AI flow
+        errorMessage = error.message; 
+    } else if (typeof error === 'string') {
+        errorMessage = error;
     }
     
-    return { result, message: "Processing successful!" };
-
-  } catch (error) {
-    console.error("AI processing error from action:", error);
-    const errorMessage = (error instanceof Error && error.message) ? error.message : "An unexpected error occurred during AI processing.";
-    return { message: errorMessage, errors: { general: [errorMessage] } };
+    // Return a consistent, serializable error state
+    return {
+      message: errorMessage, 
+      errors: { general: [errorMessage] },
+      result: null, 
+    };
   }
 }

@@ -2,7 +2,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
-// Removed useFormStatus from 'react-dom'
 import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
@@ -18,11 +17,12 @@ import { useToast } from '@/hooks/use-toast';
 const initialState: AssignmentFormState = {
   message: null,
   errors: {},
+  result: null,
 };
 
 export function AssignmentForm() {
   const [formState, formAction] = useActionState(processAssignmentAction, initialState);
-  const [isPending, startTransition] = useTransition(); // Added useTransition
+  const [isPending, startTransition] = useTransition();
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -32,7 +32,6 @@ export function AssignmentForm() {
   const [subjectTitle, setSubjectTitle] = useState('');
   const [desiredFormat, setDesiredFormat] = useState<'Text' | 'Summary' | 'Question Answering' | undefined>();
 
-  // SubmitButton now uses isPending from useTransition
   function SubmitButton() {
     return (
       <Button type="submit" disabled={isPending} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity text-primary-foreground">
@@ -72,7 +71,6 @@ export function AssignmentForm() {
     }
   };
 
-  // handleSubmit is now synchronous, formAction call wrapped in startTransition
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isLoggedIn) {
@@ -95,7 +93,7 @@ export function AssignmentForm() {
     const formData = new FormData();
     formData.append('fileDataUri', fileDataUri);
     formData.append('subjectTitle', subjectTitle);
-    formData.append('desiredFormat', desiredFormat); // desiredFormat is checked above, so it's not undefined
+    formData.append('desiredFormat', desiredFormat);
     
     startTransition(() => {
       formAction(formData);
@@ -103,31 +101,42 @@ export function AssignmentForm() {
   };
 
   useEffect(() => {
-    if (formState?.message && !formState.errors) {
-      toast({
-        title: formState.result ? "Success!" : "Error",
-        description: formState.message,
-        variant: formState.result ? "default" : "destructive",
-        className: formState.result ? "bg-green-500/10 border-green-500" : "bg-red-500/10 border-red-500",
-        icon: formState.result ? <CheckCircle className="text-green-500" /> : <AlertCircle className="text-red-500" />,
-      });
-    }
-    if (formState?.errors) {
-       const errorMessages = Object.values(formState.errors).flat().join(' ');
-       toast({
-        title: "Form Error",
-        description: errorMessages || "Please check your input.",
-        variant: "destructive",
-      });
-    }
-
-    if (formState?.result) {
-      setAiResult(formState.result);
-      if (!isSubscribed) {
-        setShowVideoAd(true); 
-        router.push('/ai-results');
-      } else {
-        router.push('/ai-results');
+    if (formState) {
+      // Scenario 1: Errors are present (validation or server-side processing error)
+      if (formState.errors && Object.keys(formState.errors).length > 0) {
+        const errorMessages = Object.values(formState.errors).flat().join(' ') || (formState.message || "An error occurred.");
+        toast({
+          title: "Error",
+          description: errorMessages,
+          variant: "destructive",
+          icon: <AlertCircle className="text-red-500" />,
+        });
+      } 
+      // Scenario 2: Success - result is present
+      else if (formState.result && formState.result.result) {
+        toast({
+          title: "Success!",
+          description: formState.message || "Processing successful!",
+          variant: "default",
+          className: "bg-green-500/10 border-green-500",
+          icon: <CheckCircle className="text-green-500" />,
+        });
+        setAiResult(formState.result);
+        if (!isSubscribed) {
+          setShowVideoAd(true); 
+        }
+        router.push('/ai-results'); // Navigate after setting ad state
+      } 
+      // Scenario 3: A message is present, but no specific errors and no successful result.
+      // This could be an informational message, or a caught error message that isn't a "form validation" type error.
+      // The action now ensures that if an error occurs, formState.errors.general will be populated.
+      // So this path is less likely for errors now, but could be for info.
+      else if (formState.message) {
+         toast({
+          title: "Info", // Default to "Info", could be "Error" if message implies it
+          description: formState.message,
+          variant: "default", // Adjust if message implies error
+        });
       }
     }
   }, [formState, setAiResult, router, isSubscribed, setShowVideoAd, toast, isLoggedIn]);
@@ -202,7 +211,9 @@ export function AssignmentForm() {
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
           </div>
           
-          {formState?.errors?.general && (
+          {/* This specific alert for general errors might be redundant if the toast handles formState.errors.general */}
+          {/* Kept for now, but consider if toast provides sufficient feedback */}
+          {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat) && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
