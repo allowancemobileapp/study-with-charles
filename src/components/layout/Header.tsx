@@ -21,7 +21,9 @@ export function Header() {
 
   const handleSignIn = () => {
     setIsLoggedIn(true);
-    setCurrentUser({ name: "Demo User", email: "demo@example.com", avatar: "https://placehold.co/40x40.png" });
+    // Set a generic user placeholder instead of "Demo User"
+    // In a real app, this data would come from an authentication provider
+    setCurrentUser({ name: "Signed-in User", email: "user@example.com" });
   };
 
   const handleSignOut = () => {
@@ -33,7 +35,6 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-md">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center space-x-2">
-          {/* Text Logo */}
           <span className="font-bold text-xl text-primary">
             PlanB: CyberGrade
           </span>
@@ -55,8 +56,10 @@ export function Header() {
         <div className="flex items-center space-x-3">
           {isLoggedIn ? (
             <div className="flex items-center space-x-3">
-              {currentUser?.avatar && (
+              {currentUser?.avatar ? (
                 <Image src={currentUser.avatar} alt={currentUser.name} width={32} height={32} className="rounded-full border-2 border-primary" data-ai-hint="avatar user" />
+              ) : (
+                <UserCircle className="h-7 w-7 text-primary" />
               )}
               <span className="hidden sm:inline text-sm text-muted-foreground">{currentUser?.name}</span>
               {isSubscribed && <Crown className="h-5 w-5 text-yellow-400" />}

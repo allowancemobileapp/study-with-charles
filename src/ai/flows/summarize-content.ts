@@ -57,6 +57,7 @@ Desired Output Format: ${input.desiredFormat}
     } else if (input.desiredFormat === 'Question Answering') {
       taskInstruction = "Based on the file provided, and since a specific question was not given for the 'Question Answering' format, please provide a general analysis and detailed summary of the uploaded file's key information, concepts, and themes.";
     } else {
+      // Fallback for any unexpected format, though schema validation should prevent this.
       taskInstruction = `Process the content and provide it in the specified format: ${input.desiredFormat}.`;
     }
 
@@ -70,7 +71,7 @@ Desired Output Format: ${input.desiredFormat}
     try {
       const response = await ai.generate({
         prompt: promptMessages as PromptData[],
-        model: 'googleai/gemini-1.5-flash-latest', // Explicitly set model
+        model: 'googleai/gemini-1.5-flash-latest', 
         output: { schema: SummarizeContentOutputSchema }, 
         config: {
           safetySettings: [
@@ -87,15 +88,17 @@ Desired Output Format: ${input.desiredFormat}
       if (!output || typeof output.result !== 'string') {
         const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null';
         console.error('AI model returned invalid or missing output structure. Output received:', receivedOutput);
+        // Ensure a plain Error is thrown for better serialization by server actions
         throw new Error('AI model did not return a valid output structure. Expected a JSON object with a "result" string field.');
       }
       return output;
-    } catch (e) {
-      console.error('Error during summarizeContentFlow execution (AI Flow):', e);
+    } catch (e: unknown) { // Catch unknown type for robust error handling
+      console.error('CRITICAL ERROR in AI Flow (summarizeContentFlow):', e);
+      // Create a new, simple Error object to ensure serializability
       if (e instanceof Error) {
         throw new Error(`AI flow failed: ${e.message}`);
       }
-      throw new Error('An unknown error occurred in the AI flow.');
+      throw new Error('An unknown error occurred in the AI flow processing.');
     }
   }
 );
