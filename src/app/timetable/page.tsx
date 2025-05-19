@@ -130,7 +130,7 @@ export default function TimetablePage() {
         <CardHeader className="flex flex-col sm:flex-row items-center justify-between">
           <div className="flex items-center space-x-2 mb-4 sm:mb-0">
             <CalendarClock size={36} className="text-primary" />
-            <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+            <CardTitle className="text-3xl font-bold text-primary">
               My Timetable
             </CardTitle>
           </div>
@@ -225,4 +225,3 @@ export default function TimetablePage() {
     </div>
   );
 }
-

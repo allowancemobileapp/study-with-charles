@@ -14,7 +14,7 @@ export function SubscriptionCTA() {
   }
 
   return (
-    <div className="bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 p-4 rounded-lg shadow-lg my-6 text-center">
+    <div className="bg-primary/10 p-4 rounded-lg shadow-lg my-6 text-center">
       <h3 className="text-lg font-semibold text-foreground mb-2">Tired of Ads? Go Premium!</h3>
       <p className="text-sm text-muted-foreground mb-3">
         Unlock an Ad-Free Experience and support PlanB: CyberGrade for just N1000/month.

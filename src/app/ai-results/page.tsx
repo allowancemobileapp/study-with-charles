@@ -64,7 +64,7 @@ export default function AiResultsPage() {
     <div className="container mx-auto py-8 px-4">
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+          <CardTitle className="text-3xl font-bold text-primary">
             AI Generated Result
           </CardTitle>
           <CardDescription className="text-muted-foreground">

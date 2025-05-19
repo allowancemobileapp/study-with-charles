@@ -1,14 +1,15 @@
 
 'use server';
 /**
- * @fileOverview Summarizes uploaded content for quick review.
+ * @fileOverview Summarizes uploaded content or extracts text based on desired format.
  *
- * - summarizeContent - A function that handles the content summarization process.
+ * - summarizeContent - A function that handles the content processing.
  * - SummarizeContentInput - The input type for the summarizeContent function.
  * - SummarizeContentOutput - The return type for the summarizeContent function.
  */
 
 import {ai} from '@/ai/genkit';
+import type { PromptData } from 'genkit';
 import {z} from 'genkit';
 
 const SummarizeContentInputSchema = z.object({
@@ -25,7 +26,7 @@ const SummarizeContentInputSchema = z.object({
 export type SummarizeContentInput = z.infer<typeof SummarizeContentInputSchema>;
 
 const SummarizeContentOutputSchema = z.object({
-  result: z.string().describe('The summarized content in the desired format.'),
+  result: z.string().describe('The processed content in the desired format.'),
 });
 export type SummarizeContentOutput = z.infer<typeof SummarizeContentOutputSchema>;
 
@@ -33,59 +34,69 @@ export async function summarizeContent(input: SummarizeContentInput): Promise<Su
   return summarizeContentFlow(input);
 }
 
-const prompt = ai.definePrompt({
-  name: 'summarizeContentPrompt',
-  input: {schema: SummarizeContentInputSchema},
-  output: {schema: SummarizeContentOutputSchema},
-  prompt: `You are an AI assistant helping students review lecture notes.
-
-You will receive a file containing lecture notes, the subject title, and the desired format for the summarized content. Your task is to process the file and provide the summarized content in the requested format.
-
-Subject Title: {{{subjectTitle}}}
-File Content: {{media url=fileDataUri}}
-Desired Format: {{{desiredFormat}}}
-
-Please provide the summarized content in the desired format.`,
-  config: {
-    safetySettings: [
-      {
-        category: 'HARM_CATEGORY_HATE_SPEECH',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_HARASSMENT',
-        threshold: 'BLOCK_NONE',
-      },
-      {
-        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
-        threshold: 'BLOCK_NONE',
-      },
-    ],
-  },
-});
-
 const summarizeContentFlow = ai.defineFlow(
   {
     name: 'summarizeContentFlow',
     inputSchema: SummarizeContentInputSchema,
     outputSchema: SummarizeContentOutputSchema,
   },
-  async input => {
+  async (input) => {
+    const introText = `You are an AI assistant helping students review lecture notes and documents.
+You will receive a file (provided as media content), the subject title, and the desired format for the result.
+Your task is to process the file and provide the result in the requested format.
+
+Subject Title: ${input.subjectTitle}
+Desired Output Format: ${input.desiredFormat}
+`;
+
+    let taskInstruction = "";
+    if (input.desiredFormat === 'Text') {
+      taskInstruction = 'Based on the file provided, extract and provide all textual content. If the file is an image, describe the image in detail or extract any visible text. The result should be the raw text or description.';
+    } else if (input.desiredFormat === 'Summary') {
+      taskInstruction = 'Based on the file provided, provide a concise summary of its content.';
+    } else if (input.desiredFormat === 'Question Answering') {
+      // This flow doesn't take a specific question. So, provide a general analysis.
+      taskInstruction = "Based on the file provided, and since a specific question was not given for the 'Question Answering' format, please provide a general analysis and detailed summary of the uploaded file's key information, concepts, and themes.";
+    } else {
+      // Fallback, though enum should prevent this
+      taskInstruction = `Process the content and provide it in the specified format: ${input.desiredFormat}.`;
+    }
+
+    const concludingText = "\nPlease ensure your entire response is a JSON object with a single string field 'result', containing your answer. Do not include any preamble, markdown formatting, or extra text outside this JSON structure. The 'result' field should directly contain the text, summary, or analysis.";
+
+    // Ensure promptMessages elements are correctly typed for Genkit
+    const promptMessages: (({text: string} | {media: {url: string}}))[] = [
+      {text: introText},
+      {text: "File Content (appears after this line):"}, // Context for the media
+      {media: {url: input.fileDataUri}}, // Media object
+      {text: "\nTask Instructions:\n" + taskInstruction},
+      {text: concludingText}
+    ];
+    
     try {
-      const {output} = await prompt(input);
+      const response = await ai.generate({
+        prompt: promptMessages as PromptData[], // Cast to PromptData[] if TS complains, though structure matches
+        model: ai.getModel(), // Use the default model configured in ai.ts
+        output: { schema: SummarizeContentOutputSchema }, // Tell the model to adhere to this schema
+        config: {
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
+        },
+      });
+      
+      const output = response.output(); 
+
       if (!output || typeof output.result !== 'string') {
-        // Log the problematic output for server-side debugging
-        console.error('AI model returned invalid or missing output structure:', output);
-        throw new Error('AI model did not return a valid output structure.');
+        console.error('AI model returned invalid or missing output structure. Output received:', JSON.stringify(output));
+        throw new Error('AI model did not return a valid output structure. Please check the model response.');
       }
       return output;
     } catch (e) {
       console.error('Error during summarizeContentFlow execution:', e);
-      // Ensure a simple Error object is propagated
       if (e instanceof Error) {
         throw new Error(`AI flow failed: ${e.message}`);
       }

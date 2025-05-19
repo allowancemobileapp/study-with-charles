@@ -33,25 +33,8 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-md">
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center space-x-2">
-          {/* Neon-like SVG logo */}
-          <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="neonGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style={{stopColor: "hsl(var(--primary))", stopOpacity:1}} />
-                <stop offset="100%" style={{stopColor: "hsl(var(--accent))", stopOpacity:1}} />
-              </linearGradient>
-              <filter id="neonGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
-                <feMerge>
-                  <feMergeNode in="coloredBlur"/>
-                  <feMergeNode in="SourceGraphic"/>
-                </feMerge>
-              </filter>
-            </defs>
-            <path d="M20 80 L50 20 L80 80 Z M30 70 L70 70" stroke="url(#neonGradient)" strokeWidth="8" fill="none" filter="url(#neonGlow)" strokeLinejoin="round" strokeLinecap="round" />
-            <path d="M50 45 L50 70" stroke="url(#neonGradient)" strokeWidth="6" fill="none" filter="url(#neonGlow)" strokeLinecap="round" />
-          </svg>
-          <span className="font-bold text-xl bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+          {/* Text Logo */}
+          <span className="font-bold text-xl text-primary">
             PlanB: CyberGrade
           </span>
         </Link>

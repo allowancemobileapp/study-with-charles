@@ -34,7 +34,7 @@ export function AssignmentForm() {
 
   function SubmitButton() {
     return (
-      <Button type="submit" disabled={isPending} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity text-primary-foreground">
+      <Button type="submit" disabled={isPending} className="w-full bg-primary hover:bg-primary/90 transition-opacity text-primary-foreground">
         {isPending ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...
@@ -102,7 +102,6 @@ export function AssignmentForm() {
 
   useEffect(() => {
     if (formState) {
-      // Scenario 1: Errors are present (validation or server-side processing error)
       if (formState.errors && Object.keys(formState.errors).length > 0) {
         const errorMessages = Object.values(formState.errors).flat().join(' ') || (formState.message || "An error occurred.");
         toast({
@@ -112,7 +111,6 @@ export function AssignmentForm() {
           icon: <AlertCircle className="text-red-500" />,
         });
       } 
-      // Scenario 2: Success - result is present
       else if (formState.result && formState.result.result) {
         toast({
           title: "Success!",
@@ -125,17 +123,13 @@ export function AssignmentForm() {
         if (!isSubscribed) {
           setShowVideoAd(true); 
         }
-        router.push('/ai-results'); // Navigate after setting ad state
+        router.push('/ai-results'); 
       } 
-      // Scenario 3: A message is present, but no specific errors and no successful result.
-      // This could be an informational message, or a caught error message that isn't a "form validation" type error.
-      // The action now ensures that if an error occurs, formState.errors.general will be populated.
-      // So this path is less likely for errors now, but could be for info.
       else if (formState.message) {
          toast({
-          title: "Info", // Default to "Info", could be "Error" if message implies it
+          title: "Info", 
           description: formState.message,
-          variant: "default", // Adjust if message implies error
+          variant: "default", 
         });
       }
     }
@@ -145,10 +139,10 @@ export function AssignmentForm() {
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-2xl border-primary/50 bg-card/80 backdrop-blur-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto p-3 bg-gradient-to-br from-primary/30 to-accent/30 rounded-full w-fit mb-4 border-2 border-primary shadow-lg">
+        <div className="mx-auto p-3 bg-primary/20 rounded-full w-fit mb-4 border-2 border-primary shadow-lg">
           <BotMessageSquare size={48} className="text-primary" />
         </div>
-        <CardTitle className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+        <CardTitle className="text-3xl font-bold text-primary">
           AI Assignment Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
@@ -211,8 +205,6 @@ export function AssignmentForm() {
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
           </div>
           
-          {/* This specific alert for general errors might be redundant if the toast handles formState.errors.general */}
-          {/* Kept for now, but consider if toast provides sufficient feedback */}
           {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat) && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive">
               <AlertCircle className="h-4 w-4" />

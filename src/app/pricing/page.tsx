@@ -54,7 +54,7 @@ export default function PricingPage() {
   return (
     <div className="container mx-auto py-12 px-4">
       <div className="text-center mb-12">
-        <h1 className="text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent mb-4">
+        <h1 className="text-5xl font-extrabold tracking-tight text-primary mb-4">
           Unlock Your Potential
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -115,7 +115,7 @@ export default function PricingPage() {
                 Cancel Subscription
               </Button>
             ) : (
-              <Button onClick={handleSubscribe} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground">
+              <Button onClick={handleSubscribe} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                 <Zap className="mr-2 h-4 w-4" /> Subscribe Now
               </Button>
             )}

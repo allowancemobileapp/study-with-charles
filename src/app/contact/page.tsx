@@ -44,7 +44,7 @@ export default function ContactPage() {
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
            <Image src="https://placehold.co/600x250.png" alt="Cyberpunk communication array" width={600} height={250} className="rounded-lg mb-6 mx-auto shadow-lg border-2 border-primary" data-ai-hint="communication network" />
-          <CardTitle className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent">
+          <CardTitle className="text-4xl font-bold text-primary">
             Get In Touch
           </CardTitle>
           <CardDescription className="text-lg text-muted-foreground mt-2">
@@ -71,7 +71,7 @@ export default function ContactPage() {
               <Label htmlFor="message" className="flex items-center text-foreground"><Send className="mr-2 h-4 w-4 text-primary" /> Your Message</Label>
               <Textarea id="message" placeholder="Tell us more..." value={formData.message} onChange={handleChange} rows={5} required className="focus-visible:ring-primary" />
             </div>
-            <Button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity text-primary-foreground">
+            <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 transition-opacity text-primary-foreground">
               {isSubmitting ? 'Sending...' : 'Send Message'}
             </Button>
           </form>
