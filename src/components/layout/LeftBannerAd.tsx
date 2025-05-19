@@ -13,7 +13,7 @@ export function LeftBannerAd() {
   }
 
   return (
-    <aside className="hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] w-48_ flex-col items-center justify-center p-4 border-r border-border/40 bg-background/80 shadow-lg" style={{width: '200px'}}>
+    <aside className="hidden lg:flex fixed left-0 top-16 h-[calc(100vh-4rem)] flex-col items-center justify-center p-4 border-r border-border/40 bg-background/80 shadow-lg" style={{width: '200px'}}>
       <div className="flex flex-col items-center space-y-4">
         <p className="text-sm font-semibold text-center text-foreground">Advertisement</p>
         <Link href="/pricing" className="w-full">

@@ -4,7 +4,7 @@
 import type React from 'react';
 import { Header } from "./Header";
 import { Footer } from "./Footer";
-import { LeftBannerAd } from "./LeftBannerAd";
+import { LeftBannerAd } from "@/components/layout/LeftBannerAd"; // Changed to absolute path
 import { useAppStore } from "@/lib/store";
 import { VideoAdModal } from '@/components/ai-helper/VideoAdModal'; // Ensure this path is correct
 
