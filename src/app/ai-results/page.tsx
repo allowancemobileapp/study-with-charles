@@ -45,6 +45,18 @@ export default function AiResultsPage() {
   }, [aiResult]);
 
 
+  const isQAResult = (text: string): boolean => {
+    if (!text) return false;
+    try {
+      const parsed = JSON.parse(text);
+      return Array.isArray(parsed) && parsed.length > 0 && 
+             typeof parsed[0] === 'object' && parsed[0] !== null &&
+             'Question' in parsed[0] && 'Answer' in parsed[0];
+    } catch (e) {
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (generateMoreFormState) {
       if (generateMoreFormState.errors && Object.keys(generateMoreFormState.errors).length > 0 && !generateMoreFormState.result) {
@@ -64,8 +76,49 @@ export default function AiResultsPage() {
           className: "bg-green-500/10 border-green-500",
           icon: <CheckCircle className="text-green-500" />,
         });
-        setAiResult(generateMoreFormState.result); 
-        setCurrentDisplayResult(generateMoreFormState.result.result);
+
+        const newQaText = generateMoreFormState.result.result;
+        let combinedQaArray: QAItem[] = [];
+
+        // Get current Q&A from the store's aiResult
+        const currentStoredQaText = useAppStore.getState().aiResult?.result;
+
+        if (currentStoredQaText && isQAResult(currentStoredQaText)) {
+          try {
+            combinedQaArray = combinedQaArray.concat(JSON.parse(currentStoredQaText));
+          } catch (e) {
+            console.error("Error parsing current stored Q&A for appending:", e);
+          }
+        }
+
+        if (isQAResult(newQaText)) {
+          try {
+            combinedQaArray = combinedQaArray.concat(JSON.parse(newQaText));
+          } catch (e) {
+            console.error("Error parsing new Q&A for appending:", e);
+          }
+        }
+        
+        // Deduplicate Q&A based on Question content
+        const uniqueQaMap = new Map<string, QAItem>();
+        combinedQaArray.forEach(item => {
+          if (item.Question) { // Ensure question exists to be used as a key
+            uniqueQaMap.set(item.Question, item);
+          } else if (item.Answer) { // Fallback for items that might only have an answer (unlikely for Q&A but safe)
+             uniqueQaMap.set(`answer_only_${uniqueQaMap.size}`, item);
+          }
+        });
+        const uniqueCombinedQaArray = Array.from(uniqueQaMap.values());
+
+        if (uniqueCombinedQaArray.length > 0) {
+          const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
+          setAiResult({ result: combinedResultString }); 
+          // setCurrentDisplayResult will be updated by the other useEffect listening to aiResult
+        } else {
+          // Fallback if somehow nothing could be combined or parsed, just show the new result
+          setAiResult(generateMoreFormState.result);
+        }
+
         if (!isSubscribed) {
           setShowVideoAd(true); 
         }
@@ -79,20 +132,8 @@ export default function AiResultsPage() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generateMoreFormState, setAiResult, isSubscribed, setShowVideoAd, toast]);
+  }, [generateMoreFormState]); // Dependencies: setAiResult, isSubscribed, setShowVideoAd, toast are stable from hooks/store.
 
-
-  const isQAResult = (text: string): boolean => {
-    if (!text) return false;
-    try {
-      const parsed = JSON.parse(text);
-      return Array.isArray(parsed) && parsed.length > 0 && 
-             typeof parsed[0] === 'object' && parsed[0] !== null &&
-             'Question' in parsed[0] && 'Answer' in parsed[0];
-    } catch (e) {
-      return false;
-    }
-  };
 
   const getFormattedContent = (): string => {
     if (!currentDisplayResult) return "";
@@ -106,6 +147,7 @@ export default function AiResultsPage() {
         ).join('');
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON after check. Error:", e);
+         // Fallback to raw text if parsing fails despite isQAResult check (should be rare)
       }
     }
     return resultText; 
@@ -200,9 +242,16 @@ export default function AiResultsPage() {
         );
       } catch (e) {
         console.error("AIResultsPage renderContent: Could not parse result as Q&A JSON. Error:", e, "Problematic JSON:", resultText.substring(0,500));
+        // Fallback to raw text if parsing fails, ensuring user sees something
+        return (
+          <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+            {resultText}
+          </pre>
+        );
       }
     }
 
+    // Default to rendering as plain text if not Q&A
     return (
       <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
         {resultText}
@@ -261,7 +310,12 @@ export default function AiResultsPage() {
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[400px] w-full rounded-md border border-border p-4 bg-secondary/30">
-            {isGeneratingMore && !currentDisplayResult ? <Loader2 className="mx-auto h-12 w-12 animate-spin text-primary" /> : renderContent()}
+            {isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult))) ? 
+              <div className="flex flex-col items-center justify-center h-full">
+                 <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                 <p className="text-muted-foreground">Generating more Q&A...</p>
+              </div>
+             : renderContent()}
           </ScrollArea>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-6 space-y-3 sm:space-y-0">
@@ -298,3 +352,4 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
