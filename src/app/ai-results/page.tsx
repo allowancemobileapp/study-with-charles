@@ -1,23 +1,24 @@
+
 "use client";
 
 import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy } from "lucide-react"; // Added Copy
+import { Download, CalendarPlus, AlertTriangle, Copy } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useToast } from "@/hooks/use-toast"; // Added useToast
+import { useToast } from "@/hooks/use-toast";
 
 interface QAItem {
-  Question: string;
-  Answer: string;
+  Question: string | null | undefined; // Allow for potential null/undefined from AI
+  Answer: string | null | undefined;   // Allow for potential null/undefined from AI
 }
 
 export default function AiResultsPage() {
   const { aiResult, setAiResult } = useAppStore();
   const router = useRouter();
-  const { toast } = useToast(); // Initialize toast
+  const { toast } = useToast();
 
   useEffect(() => {
     // Optional: Clear result from store when component unmounts if it's single-use display
@@ -30,22 +31,18 @@ export default function AiResultsPage() {
     if (!aiResult || !aiResult.result) return "";
     try {
       const parsed = JSON.parse(aiResult.result);
-      // Check if it's an array and the first item has 'Question' and 'Answer' keys
-      if (Array.isArray(parsed) && parsed.length > 0 &&
-          typeof parsed[0] === 'object' && parsed[0] !== null &&
-          'Question' in parsed[0] && 'Answer' in parsed[0]) {
-        
-        // Double check all items are as expected if we want to be very strict
-        const allItemsAreQA = parsed.every(
-            (item: any) => typeof item === 'object' && item !== null &&
-                           'Question' in item && typeof item.Question === 'string' &&
-                           'Answer' in item && typeof item.Answer === 'string'
-        );
-        if (allItemsAreQA) {
-            return (parsed as QAItem[]).map((qa: QAItem, index: number) =>
-                `Question ${index + 1}:\n${String(qa.Question)}\n\nAnswer:\n${String(qa.Answer)}\n\n---\n\n`
-            ).join('');
-        }
+      if (
+        Array.isArray(parsed) &&
+        parsed.length > 0 &&
+        typeof parsed[0] === 'object' &&
+        parsed[0] !== null &&
+        'Question' in parsed[0] &&
+        'Answer' in parsed[0]
+      ) {
+        // Basic check passed, assume Q&A structure for formatting
+        return (parsed as QAItem[]).map((qa: QAItem, index: number) =>
+            `Question ${index + 1}:\n${String(qa.Question ?? '')}\n\nAnswer:\n${String(qa.Answer ?? '')}\n\n---\n\n`
+        ).join('');
       }
     } catch (e) {
       // Not JSON or not expected format, return raw result
@@ -96,42 +93,33 @@ export default function AiResultsPage() {
     if (!aiResult || !aiResult.result) return <p className="text-muted-foreground">No result content to display.</p>;
 
     try {
-      const parsed = JSON.parse(aiResult.result);
+      const parsedResult = JSON.parse(aiResult.result);
 
-      // Check if it's an array and the first item has 'Question' and 'Answer' keys
-      if (Array.isArray(parsed) && parsed.length > 0 &&
-          typeof parsed[0] === 'object' && parsed[0] !== null &&
-          'Question' in parsed[0] && 'Answer' in parsed[0]) {
-
-        // More robust check to ensure all items in the array fit the QAItem structure
-        const allItemsAreValidQA = parsed.every(
-          (item: any): item is QAItem =>
-            typeof item === 'object' &&
-            item !== null &&
-            'Question' in item &&
-            typeof item.Question === 'string' &&
-            'Answer' in item &&
-            typeof item.Answer === 'string'
+      if (
+        Array.isArray(parsedResult) &&
+        parsedResult.length > 0 &&
+        typeof parsedResult[0] === 'object' &&
+        parsedResult[0] !== null &&
+        'Question' in parsedResult[0] &&
+        'Answer' in parsedResult[0]
+      ) {
+        // Render as Q&A if it matches the structure
+        return (
+          <div>
+            {(parsedResult as QAItem[]).map((qa, index) => (
+              <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
+                <h3 className="text-lg font-semibold text-primary mb-1">
+                  Question {index + 1}:
+                </h3>
+                <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? '')}</p>
+                <h4 className="text-md font-semibold text-accent mb-2">
+                  Answer:
+                </h4>
+                <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? '')}</p>
+              </div>
+            ))}
+          </div>
         );
-
-        if (allItemsAreValidQA) {
-          return (
-            <div>
-              {(parsed as QAItem[]).map((qa, index) => (
-                <div key={index} className="mb-6 pb-4 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
-                  <h3 className="text-lg font-semibold text-primary mb-1">
-                    Question {index + 1}:
-                  </h3>
-                  <p className="text-foreground mb-3 whitespace-pre-wrap">{qa.Question}</p>
-                  <h4 className="text-md font-semibold text-accent mb-1">
-                    Answer:
-                  </h4>
-                  <p className="text-foreground whitespace-pre-wrap">{qa.Answer}</p>
-                </div>
-              ))}
-            </div>
-          );
-        }
       }
     } catch (e) {
       // If JSON.parse fails or structure is not as expected, fall through to render as pre.
@@ -198,3 +186,4 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
