@@ -10,13 +10,13 @@ import Image from "next/image";
 
 const features = {
   free: [
-    { text: "Basic AI Assignment Helper", included: true },
+    { text: "Basic AI Helper Access", included: true },
     { text: "Timetable & Scheduling", included: true },
     { text: "Contains Ads (Banner & Video)", included: false, type: 'negative' },
     { text: "Limited Support", included: true },
   ],
   premium: [
-    { text: "Full AI Assignment Helper Access", included: true },
+    { text: "Full AI Helper Access", included: true },
     { text: "Advanced Timetable Features", included: true },
     { text: "Ad-Free Experience", included: true },
     { text: "Priority Email Support", included: true },
@@ -37,7 +37,7 @@ export default function PricingPage() {
     setIsSubscribed(true);
     toast({
       title: "Subscription Activated!",
-      description: "Welcome to PlanB: CyberGrade Premium!",
+      description: "Welcome to Study with Charles Premium!",
       className: "bg-green-500/10 border-green-500",
     });
   };
@@ -46,7 +46,7 @@ export default function PricingPage() {
     setIsSubscribed(false);
     toast({
       title: "Subscription Cancelled",
-      description: "Your PlanB: CyberGrade Premium subscription has been cancelled.",
+      description: "Your Study with Charles Premium subscription has been cancelled.",
       variant: "destructive"
     });
   };
@@ -58,7 +58,7 @@ export default function PricingPage() {
           Unlock Your Potential
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-          Choose the plan that supercharges your studies. Go ad-free and get the full power of PlanB: CyberGrade.
+          Choose the plan that supercharges your studies. Go ad-free and get the full power of Study with Charles.
         </p>
       </div>
 

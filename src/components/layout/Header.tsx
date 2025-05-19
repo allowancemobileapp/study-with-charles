@@ -21,7 +21,7 @@ export function Header() {
 
   const handleSignIn = () => {
     setIsLoggedIn(true);
-    // Set a generic user placeholder instead of "Demo User"
+    // Set a generic user placeholder
     // In a real app, this data would come from an authentication provider
     setCurrentUser({ name: "Signed-in User", email: "user@example.com" });
   };
@@ -36,7 +36,7 @@ export function Header() {
       <div className="container flex h-16 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center space-x-2">
           <span className="font-bold text-xl text-primary">
-            PlanB: CyberGrade
+            Study with Charles
           </span>
         </Link>
 

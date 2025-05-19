@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react'; // Added useTransition
+import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
 import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
 import { useAppStore, type DesiredFormatType } from '@/lib/store';
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ const initialState: AssignmentFormState = {
 
 export function AssignmentForm() {
   const [formState, formAction, isPending] = useActionState(processAssignmentAction, initialState);
-  const [, startTransition] = useTransition(); // Initialize startTransition
+  const [, startTransition] = useTransition();
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -104,7 +104,7 @@ export function AssignmentForm() {
     }
 
     const formData = new FormData();
-    if (userTextQuery.trim()) { // Text input now comes first in logic if desired
+    if (userTextQuery.trim()) {
       formData.append('userTextQuery', userTextQuery.trim());
     }
     if (fileDataUri) {
@@ -113,7 +113,7 @@ export function AssignmentForm() {
     formData.append('subjectTitle', subjectTitle);
     formData.append('desiredFormat', desiredFormat);
     
-    startTransition(() => { // Wrap formAction call
+    startTransition(() => {
       formAction(formData);
     });
   };
@@ -168,7 +168,7 @@ export function AssignmentForm() {
           <BotMessageSquare size={48} className="text-primary" />
         </div>
         <CardTitle className="text-3xl font-bold text-primary">
-          AI Assignment Helper
+          AI Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
           Type a question, upload schoolwork (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!

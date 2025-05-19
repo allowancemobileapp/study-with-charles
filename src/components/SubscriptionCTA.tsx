@@ -17,7 +17,7 @@ export function SubscriptionCTA() {
     <div className="bg-primary/10 p-4 rounded-lg shadow-lg my-6 text-center">
       <h3 className="text-lg font-semibold text-foreground mb-2">Tired of Ads? Go Premium!</h3>
       <p className="text-sm text-muted-foreground mb-3">
-        Unlock an Ad-Free Experience and support PlanB: CyberGrade for just N1000/month.
+        Unlock an Ad-Free Experience and support Study with Charles for just N1000/month.
       </p>
       <Button asChild variant="default" className="bg-primary hover:bg-primary/90 text-primary-foreground">
         <Link href="/pricing">

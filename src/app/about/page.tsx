@@ -10,7 +10,7 @@ export default function AboutPage() {
         <CardHeader className="text-center">
           <Image src="https://placehold.co/600x300.png" alt="Team working on computers" width={600} height={300} className="rounded-lg mb-6 mx-auto shadow-lg border-2 border-accent" data-ai-hint="team collaboration" />
           <CardTitle className="text-4xl font-bold text-primary">
-            About PlanB: CyberGrade
+            About Study with Charles
           </CardTitle>
           <CardDescription className="text-lg text-muted-foreground mt-2">
             Your AI-powered academic co-pilot.
@@ -22,7 +22,7 @@ export default function AboutPage() {
               <Target className="mr-3 h-7 w-7" /> Our Mission
             </h2>
             <p>
-              At PlanB: CyberGrade, our mission is to empower students by providing innovative AI-driven tools that simplify learning, enhance understanding, and improve academic organization. We believe that technology can bridge gaps in traditional education, offering personalized support to every student.
+              At Study with Charles, our mission is to empower students by providing innovative AI-driven tools that simplify learning, enhance understanding, and improve academic organization. We believe that technology can bridge gaps in traditional education, offering personalized support to every student.
             </p>
           </section>
 
@@ -31,7 +31,7 @@ export default function AboutPage() {
               <Brain className="mr-3 h-7 w-7" /> What We Do
             </h2>
             <p>
-              We leverage cutting-edge artificial intelligence to offer a suite of services designed to help students excel. From our AI Assignment Helper that demystifies complex subjects to our intuitive Timetable & Scheduling system that keeps you on track, PlanB: CyberGrade is built to be your ultimate study partner. Our platform is designed with a futuristic, user-friendly interface, making advanced academic assistance accessible and engaging.
+              We leverage cutting-edge artificial intelligence to offer a suite of services designed to help students excel. From our AI Helper that demystifies complex subjects to our intuitive Timetable & Scheduling system that keeps you on track, Study with Charles is built to be your ultimate study partner. Our platform is designed with a futuristic, user-friendly interface, making advanced academic assistance accessible and engaging.
             </p>
           </section>
 

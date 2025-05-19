@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'PlanB: CyberGrade',
+  title: 'Study with Charles',
   description: 'AI-powered schoolwork assistance and scheduling.',
 };
 

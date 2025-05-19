@@ -78,9 +78,9 @@ export default function ContactPage() {
         </CardContent>
         <CardFooter className="mt-8 flex flex-col items-center text-center">
             <Building className="h-8 w-8 text-accent mb-2" />
-            <p className="text-sm text-muted-foreground">PlanB: CyberGrade HQ</p>
+            <p className="text-sm text-muted-foreground">Study with Charles HQ</p>
             <p className="text-xs text-muted-foreground">123 Cyber Street, Neo City, Future Earth</p>
-            <p className="text-xs text-muted-foreground">support@planbcybergrade.io</p>
+            <p className="text-xs text-muted-foreground">support@studywithcharles.io</p>
         </CardFooter>
       </Card>
     </div>
