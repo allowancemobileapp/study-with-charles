@@ -1,13 +1,13 @@
-
 "use client";
 
 import { useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy } from "lucide-react"; // Added Copy
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from "@/hooks/use-toast"; // Added useToast
 
 interface QAItem {
   Question: string;
@@ -17,6 +17,7 @@ interface QAItem {
 export default function AiResultsPage() {
   const { aiResult, setAiResult } = useAppStore();
   const router = useRouter();
+  const { toast } = useToast(); // Initialize toast
 
   useEffect(() => {
     // Optional: Clear result from store when component unmounts if it's single-use display
@@ -25,17 +26,36 @@ export default function AiResultsPage() {
     // };
   }, [setAiResult]);
 
-  const handleDownload = () => {
-    if (aiResult && aiResult.result) {
-      let contentToDownload = aiResult.result;
-      try {
-        const parsed = JSON.parse(aiResult.result);
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed.every(item => typeof item === 'object' && item !== null && 'Question' in item && 'Answer' in item)) {
-          contentToDownload = parsed.map((qa: QAItem, index: number) => `Question ${index + 1}:\n${qa.Question}\n\nAnswer:\n${qa.Answer}\n\n---\n\n`).join('');
+  const getFormattedContent = (): string => {
+    if (!aiResult || !aiResult.result) return "";
+    try {
+      const parsed = JSON.parse(aiResult.result);
+      // Check if it's an array and the first item has 'Question' and 'Answer' keys
+      if (Array.isArray(parsed) && parsed.length > 0 &&
+          typeof parsed[0] === 'object' && parsed[0] !== null &&
+          'Question' in parsed[0] && 'Answer' in parsed[0]) {
+        
+        // Double check all items are as expected if we want to be very strict
+        const allItemsAreQA = parsed.every(
+            (item: any) => typeof item === 'object' && item !== null &&
+                           'Question' in item && typeof item.Question === 'string' &&
+                           'Answer' in item && typeof item.Answer === 'string'
+        );
+        if (allItemsAreQA) {
+            return (parsed as QAItem[]).map((qa: QAItem, index: number) =>
+                `Question ${index + 1}:\n${String(qa.Question)}\n\nAnswer:\n${String(qa.Answer)}\n\n---\n\n`
+            ).join('');
         }
-      } catch (e) {
-        // Not JSON or not expected format, use raw result
       }
+    } catch (e) {
+      // Not JSON or not expected format, return raw result
+    }
+    return aiResult.result;
+  };
+
+  const handleDownload = () => {
+    const contentToDownload = getFormattedContent();
+    if (contentToDownload) {
       const blob = new Blob([contentToDownload], { type: 'text/plain;charset=utf-8' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -47,8 +67,29 @@ export default function AiResultsPage() {
     }
   };
 
+  const handleCopy = async () => {
+    const contentToCopy = getFormattedContent();
+    if (contentToCopy) {
+      try {
+        await navigator.clipboard.writeText(contentToCopy);
+        toast({
+          title: "Copied to clipboard!",
+          description: "The AI result has been copied.",
+          className: "bg-green-500/10 border-green-500",
+        });
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+        toast({
+          title: "Copy Failed",
+          description: "Could not copy the result to clipboard.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   const handleSchedule = () => {
-    router.push('/timetable?action=schedule_result'); 
+    router.push('/timetable?action=schedule_result');
   };
 
   const renderContent = () => {
@@ -56,32 +97,48 @@ export default function AiResultsPage() {
 
     try {
       const parsed = JSON.parse(aiResult.result);
-      if (Array.isArray(parsed) && parsed.length > 0 && 
-          parsed.every(item => typeof item === 'object' && item !== null && 'Question' in item && 'Answer' in item && typeof item.Question === 'string' && typeof item.Answer === 'string')) {
-        
-        return (
-          <div>
-            {parsed.map((qa: QAItem, index: number) => (
-              <div key={index} className="mb-6 pb-4 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
-                <h3 className="text-lg font-semibold text-primary mb-1">
-                  Question {index + 1}:
-                </h3>
-                <p className="text-foreground mb-3 whitespace-pre-wrap">{qa.Question}</p>
-                <h4 className="text-md font-semibold text-accent mb-1">
-                  Answer:
-                </h4>
-                <p className="text-foreground whitespace-pre-wrap">{qa.Answer}</p>
-              </div>
-            ))}
-          </div>
+
+      // Check if it's an array and the first item has 'Question' and 'Answer' keys
+      if (Array.isArray(parsed) && parsed.length > 0 &&
+          typeof parsed[0] === 'object' && parsed[0] !== null &&
+          'Question' in parsed[0] && 'Answer' in parsed[0]) {
+
+        // More robust check to ensure all items in the array fit the QAItem structure
+        const allItemsAreValidQA = parsed.every(
+          (item: any): item is QAItem =>
+            typeof item === 'object' &&
+            item !== null &&
+            'Question' in item &&
+            typeof item.Question === 'string' &&
+            'Answer' in item &&
+            typeof item.Answer === 'string'
         );
+
+        if (allItemsAreValidQA) {
+          return (
+            <div>
+              {(parsed as QAItem[]).map((qa, index) => (
+                <div key={index} className="mb-6 pb-4 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
+                  <h3 className="text-lg font-semibold text-primary mb-1">
+                    Question {index + 1}:
+                  </h3>
+                  <p className="text-foreground mb-3 whitespace-pre-wrap">{qa.Question}</p>
+                  <h4 className="text-md font-semibold text-accent mb-1">
+                    Answer:
+                  </h4>
+                  <p className="text-foreground whitespace-pre-wrap">{qa.Answer}</p>
+                </div>
+              ))}
+            </div>
+          );
+        }
       }
     } catch (e) {
-      // Not Q&A JSON, render as preformatted text
-      // This can be normal for "Summary" or "Text" formats
+      // If JSON.parse fails or structure is not as expected, fall through to render as pre.
+      // console.warn("AIResultsPage: Could not parse result as Q&A JSON or structure mismatch. Rendering as raw text. Error:", e);
     }
 
-    // Fallback for non-Q&A JSON or if parsing fails (e.g. for Summary or Text results)
+    // Fallback for non-JSON, non-Q&A JSON, or if parsing/validation fails
     return (
       <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
         {aiResult.result}
@@ -127,6 +184,9 @@ export default function AiResultsPage() {
           </ScrollArea>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3 pt-6">
+          <Button variant="outline" onClick={handleCopy} className="w-full sm:w-auto border-primary text-primary hover:bg-primary/10">
+            <Copy className="mr-2 h-4 w-4" /> Copy Result
+          </Button>
           <Button variant="outline" onClick={handleDownload} className="w-full sm:w-auto border-primary text-primary hover:bg-primary/10">
             <Download className="mr-2 h-4 w-4" /> Download Result
           </Button>
