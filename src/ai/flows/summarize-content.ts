@@ -51,7 +51,20 @@ Desired Output Format: ${input.desiredFormat}
 
     let taskInstruction = "";
     if (input.desiredFormat === 'Text') {
-      taskInstruction = 'Based on the file provided, extract and provide all relevant textual content. This tool is intended to help with assignments requiring research by extracting relevant text from documents or providing detailed descriptions if the file is an image. The result should be comprehensive text or a detailed description suitable for academic work.';
+      taskInstruction = `You are an AI assistant specializing in solving academic assignments.
+Your task is to analyze the provided file content (which could be a document or an image of an assignment).
+First, carefully examine the content to identify any specific assignment questions or problems that need to be solved.
+
+If you find explicit questions:
+- Answer these questions thoroughly and accurately.
+- Present your answers in a well-structured document or report format. This means using clear headings for each question if multiple are found, and providing comprehensive answers.
+- Use clear language and provide explanations or steps where appropriate.
+- The entire response should be a coherent solution to the identified assignment questions.
+
+If you DO NOT find any specific assignment questions or problems to solve in the content:
+- Your entire output MUST be the following exact phrase: "No specific assignment questions were identified in the uploaded content. Please ensure your document contains clear questions if you intended to use the assignment solving feature."
+
+Do not add any conversational preamble or unrelated text to your response.`;
     } else if (input.desiredFormat === 'Summary') {
       taskInstruction = 'Based on the file provided, provide a concise and comprehensive summary of its key content, concepts, and main points. Focus on extracting the core ideas and presenting them clearly.';
     } else if (input.desiredFormat === 'Question Answering') {
@@ -97,7 +110,7 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
       });
       
       console.log("AI Flow: summarizeContentFlow - Raw response from ai.generate (output property):", JSON.stringify(response.output, null, 2).substring(0, 500) + "...");
-      const output = response.output; // Access as property for Genkit v1.x
+      const output = response.output; 
 
       if (!output || typeof output.result !== 'string') {
         const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null or undefined';
@@ -113,9 +126,8 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
       if (e instanceof Error) {
         console.error('Error Name:', e.name);
         console.error('Error Message:', e.message);
-        console.error('Error Stack:', e.stack);
+        if (e.stack) console.error('Error Stack:', e.stack);
         errorMessage = `AI flow failed: ${e.message}`;
-        // Log additional properties if they exist
         const anyError = e as any;
         if (anyError.details) console.error('Error Details:', anyError.details);
         if (anyError.status) console.error('Error Status:', anyError.status);
@@ -124,8 +136,8 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
         console.error('Unknown error type caught:', e);
         errorMessage = 'An unknown error occurred in the AI flow processing.';
       }
-      // Ensure a plain Error object is thrown to be serializable for Server Actions
       throw new Error(errorMessage);
     }
   }
 );
+
