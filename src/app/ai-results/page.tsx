@@ -11,21 +11,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
 
 interface QAItem {
-  Question: string | null | undefined; // Allow for potential null/undefined from AI
-  Answer: string | null | undefined;   // Allow for potential null/undefined from AI
+  Question: string | null | undefined;
+  Answer: string | null | undefined;
 }
 
 export default function AiResultsPage() {
-  const { aiResult, setAiResult } = useAppStore();
+  const { aiResult } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Optional: Clear result from store when component unmounts if it's single-use display
-    // return () => {
-    //   setAiResult(null);
-    // };
-  }, [setAiResult]);
 
   const getFormattedContent = (): string => {
     if (!aiResult || !aiResult.result) return "";
@@ -39,13 +32,12 @@ export default function AiResultsPage() {
         'Question' in parsed[0] &&
         'Answer' in parsed[0]
       ) {
-        // Basic check passed, assume Q&A structure for formatting
-        return (parsed as QAItem[]).map((qa: QAItem, index: number) =>
-            `Question ${index + 1}:\n${String(qa.Question ?? '')}\n\nAnswer:\n${String(qa.Answer ?? '')}\n\n---\n\n`
+        return (parsed as QAItem[]).map((qa: QAItem) =>
+            `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}\n\n`
         ).join('');
       }
     } catch (e) {
-      // Not JSON or not expected format, return raw result
+      // Not JSON or not expected Q&A format, return raw result
     }
     return aiResult.result;
   };
@@ -61,6 +53,11 @@ export default function AiResultsPage() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
+      toast({
+        title: "Download Started",
+        description: "Your AI result is downloading.",
+        className: "bg-blue-500/10 border-blue-500",
+      });
     }
   };
 
@@ -108,14 +105,10 @@ export default function AiResultsPage() {
           <div>
             {(parsedResult as QAItem[]).map((qa, index) => (
               <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
-                <h3 className="text-lg font-semibold text-primary mb-1">
-                  Question {index + 1}:
-                </h3>
-                <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? '')}</p>
-                <h4 className="text-md font-semibold text-accent mb-2">
-                  Answer:
-                </h4>
-                <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? '')}</p>
+                <p className="text-lg font-semibold text-primary">Question:</p>
+                <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
+                <p className="text-lg font-semibold text-accent">Answer:</p>
+                <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
               </div>
             ))}
           </div>
@@ -123,7 +116,7 @@ export default function AiResultsPage() {
       }
     } catch (e) {
       // If JSON.parse fails or structure is not as expected, fall through to render as pre.
-      // console.warn("AIResultsPage: Could not parse result as Q&A JSON or structure mismatch. Rendering as raw text. Error:", e);
+      console.error("AIResultsPage: Could not parse result as Q&A JSON or structure mismatch. Rendering as raw text. Error:", e);
     }
 
     // Fallback for non-JSON, non-Q&A JSON, or if parsing/validation fails
@@ -186,4 +179,3 @@ export default function AiResultsPage() {
     </div>
   );
 }
-
