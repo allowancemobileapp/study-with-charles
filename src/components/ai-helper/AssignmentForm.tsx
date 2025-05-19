@@ -21,6 +21,9 @@ const initialState: AssignmentFormState = {
   result: null,
 };
 
+const EMOJI_LIST = ['😊', '📚', '💡', '👍', '✨', '🚀', '🧠', '🤓', '🎉', '🤖'];
+const EMOJI_INTERVAL = 2500; // 2.5 seconds
+
 export function AssignmentForm() {
   const [formState, formAction, isFormActionPending] = useActionState(processAssignmentAction, initialState);
   const [, startTransition] = useTransition(); 
@@ -34,8 +37,17 @@ export function AssignmentForm() {
   const [subjectTitle, setSubjectTitle] = useState('');
   const [desiredFormat, setDesiredFormat] = useState<DesiredFormatType | undefined>();
   const [userTextQuery, setUserTextQuery] = useState('');
+  const [currentEmojiIndex, setCurrentEmojiIndex] = useState(0);
 
   const isProcessing = isFormActionPending;
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCurrentEmojiIndex((prevIndex) => (prevIndex + 1) % EMOJI_LIST.length);
+    }, EMOJI_INTERVAL);
+
+    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+  }, []);
 
 
   function SubmitButton() {
@@ -169,7 +181,7 @@ export function AssignmentForm() {
     <Card className="w-full max-w-2xl mx-auto shadow-2xl border-primary/50 bg-card/80 backdrop-blur-sm">
       <CardHeader className="text-center">
         <div className="mx-auto p-3 bg-primary/20 rounded-full w-fit mb-4 border-2 border-primary shadow-lg text-4xl">
-          😊
+          {EMOJI_LIST[currentEmojiIndex]}
         </div>
         <CardTitle className="text-3xl font-bold text-primary">
           Hi, I'm Charles. Let's study...
@@ -266,3 +278,5 @@ export function AssignmentForm() {
     </Card>
   );
 }
+
+    
