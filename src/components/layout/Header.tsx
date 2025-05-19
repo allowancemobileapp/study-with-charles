@@ -2,10 +2,10 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image"; // Added based on previous usage for avatar
-import React from 'react'; // Import React
+import Image from "next/image"; 
+import React from 'react'; 
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"; // Added SheetHeader, SheetTitle
 import { Menu, BotMessageSquare, UserCircle, LogIn, LogOut, Crown, DollarSign, Info, Mail } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 
@@ -56,7 +56,7 @@ export function Header() {
           {isLoggedIn ? (
             <div className="flex items-center space-x-3">
               {currentUser?.avatar ? (
-                <Image src={currentUser.avatar} alt={currentUser.name || 'User Avatar'} width={32} height={32} className="rounded-full border-2 border-primary" data-ai-hint="avatar user" />
+                <Image src={currentUser.avatar} alt={currentUser.name || 'User Avatar'} width={32} height={32} className="rounded-full border-2 border-primary" data-ai-hint="avatar user"/>
               ) : (
                 <UserCircle className="h-7 w-7 text-primary" />
               )}
@@ -81,20 +81,23 @@ export function Header() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px] bg-background p-6">
+              <SheetHeader className="mb-4">
+                <SheetTitle className="text-left text-xl text-primary">Navigation Menu</SheetTitle>
+              </SheetHeader>
               <nav className="flex flex-col space-y-4">
                 {navLinks.map((link) => {
-                  const IconToRender = link.icon;
+                  const IconComponent = link.icon;
                   return (
                     <Link
                       key={link.label}
                       href={link.href}
                       className="flex items-center space-x-3 rounded-md p-2 text-lg transition-colors hover:bg-accent/10 hover:text-accent"
                     >
-                      {React.isValidElement(IconToRender)
-                        ? IconToRender // If it's already a React element (like an inline SVG), render it directly.
-                        : (IconToRender && typeof IconToRender === 'function' // Otherwise, if it's a component function (like Lucide icons)
-                            ? <IconToRender className="h-6 w-6" /> // Instantiate it.
-                            : null) // Fallback for other unexpected types.
+                      {React.isValidElement(IconComponent)
+                        ? IconComponent 
+                        : (IconComponent && typeof IconComponent === 'function' 
+                            ? <IconComponent className="h-6 w-6" /> 
+                            : null) 
                       }
                       <span>{link.label}</span>
                     </Link>
