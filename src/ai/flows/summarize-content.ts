@@ -45,6 +45,26 @@ File Content: {{media url=fileDataUri}}
 Desired Format: {{{desiredFormat}}}
 
 Please provide the summarized content in the desired format.`,
+  config: {
+    safetySettings: [
+      {
+        category: 'HARM_CATEGORY_HATE_SPEECH',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_HARASSMENT',
+        threshold: 'BLOCK_NONE',
+      },
+      {
+        category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+        threshold: 'BLOCK_NONE',
+      },
+    ],
+  },
 });
 
 const summarizeContentFlow = ai.defineFlow(
@@ -55,6 +75,11 @@ const summarizeContentFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output) {
+      // This case should ideally be handled by Genkit/GoogleAI plugin throwing an error before this point
+      // if the generation fails significantly. But as a fallback:
+      throw new Error('AI model did not return an output.');
+    }
+    return output;
   }
 );
