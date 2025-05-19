@@ -62,22 +62,21 @@ Desired Output Format: ${input.desiredFormat}
       taskInstruction = `Process the content and provide it in the specified format: ${input.desiredFormat}.`;
     }
 
-    const concludingText = "\nPlease ensure your entire response is a JSON object with a single string field 'result', containing your answer. Do not include any preamble, markdown formatting, or extra text outside this JSON structure. The 'result' field should directly contain the text, summary, or analysis.";
+    // Rely on output: { schema: SummarizeContentOutputSchema } to enforce JSON.
+    // Explicitly asking for JSON in the prompt text can sometimes conflict.
 
-    // Ensure promptMessages elements are correctly typed for Genkit
     const promptMessages: (({text: string} | {media: {url: string}}))[] = [
       {text: introText},
-      {text: "File Content (appears after this line):"}, // Context for the media
-      {media: {url: input.fileDataUri}}, // Media object
+      {text: "File Content (appears after this line):"},
+      {media: {url: input.fileDataUri}},
       {text: "\nTask Instructions:\n" + taskInstruction},
-      {text: concludingText}
     ];
     
     try {
       const response = await ai.generate({
-        prompt: promptMessages as PromptData[], // Cast to PromptData[] if TS complains, though structure matches
-        model: ai.getModel(), // Use the default model configured in ai.ts
-        output: { schema: SummarizeContentOutputSchema }, // Tell the model to adhere to this schema
+        prompt: promptMessages as PromptData[],
+        model: ai.getModel(),
+        output: { schema: SummarizeContentOutputSchema }, // Instructs model to adhere to this schema
         config: {
           safetySettings: [
             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -91,8 +90,9 @@ Desired Output Format: ${input.desiredFormat}
       const output = response.output(); 
 
       if (!output || typeof output.result !== 'string') {
-        console.error('AI model returned invalid or missing output structure. Output received:', JSON.stringify(output));
-        throw new Error('AI model did not return a valid output structure. Please check the model response.');
+        const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null';
+        console.error('AI model returned invalid or missing output structure. Output received:', receivedOutput);
+        throw new Error('AI model did not return a valid output structure. Expected a JSON object with a "result" string field.');
       }
       return output;
     } catch (e) {
@@ -104,3 +104,4 @@ Desired Output Format: ${input.desiredFormat}
     }
   }
 );
+
