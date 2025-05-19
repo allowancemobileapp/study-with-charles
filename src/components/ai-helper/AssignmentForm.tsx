@@ -1,16 +1,16 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
+import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react'; // Added useTransition
 import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
-import { useAppStore, type DesiredFormatType } from '@/lib/store'; // Import DesiredFormatType
+import { useAppStore, type DesiredFormatType } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare, Pilcrow, SearchCheck } from "lucide-react"; // Added SearchCheck
+import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare, Pilcrow, SearchCheck } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -23,7 +23,7 @@ const initialState: AssignmentFormState = {
 
 export function AssignmentForm() {
   const [formState, formAction, isPending] = useActionState(processAssignmentAction, initialState);
-  // const [isPending, startTransition] = useTransition(); // useActionState provides isPending
+  const [, startTransition] = useTransition(); // Initialize startTransition
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -31,7 +31,7 @@ export function AssignmentForm() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDataUri, setFileDataUri] = useState<string | null>(null);
   const [subjectTitle, setSubjectTitle] = useState('');
-  const [desiredFormat, setDesiredFormat] = useState<DesiredFormatType | undefined>(); // Updated type
+  const [desiredFormat, setDesiredFormat] = useState<DesiredFormatType | undefined>();
   const [userTextQuery, setUserTextQuery] = useState('');
 
   function SubmitButton() {
@@ -104,18 +104,18 @@ export function AssignmentForm() {
     }
 
     const formData = new FormData();
+    if (userTextQuery.trim()) { // Text input now comes first in logic if desired
+      formData.append('userTextQuery', userTextQuery.trim());
+    }
     if (fileDataUri) {
       formData.append('fileDataUri', fileDataUri);
-    }
-    if (userTextQuery.trim()) {
-      formData.append('userTextQuery', userTextQuery.trim());
     }
     formData.append('subjectTitle', subjectTitle);
     formData.append('desiredFormat', desiredFormat);
     
-    // startTransition(() => { // useActionState handles transitions implicitly when formAction is passed to <form action> or called directly for non-form submissions
-    formAction(formData);
-    // });
+    startTransition(() => { // Wrap formAction call
+      formAction(formData);
+    });
   };
 
   useEffect(() => {
@@ -138,11 +138,11 @@ export function AssignmentForm() {
           icon: <CheckCircle className="text-green-500" />,
         });
         setAiResult(formState.result);
-        setLastAiInput({ // Store the input that led to this successful result
+        setLastAiInput({
           subjectTitle: subjectTitle,
           fileDataUri: fileDataUri,
           userTextQuery: userTextQuery,
-          desiredFormat: desiredFormat || null, // Store desiredFormat
+          desiredFormat: desiredFormat || null,
         });
         if (!isSubscribed) {
           setShowVideoAd(true); 
@@ -228,7 +228,7 @@ export function AssignmentForm() {
               <ListChecks className="mr-2 h-5 w-5 text-primary" /> Desired Result Format
             </Label>
             <Select 
-              onValueChange={(value: DesiredFormatType) => setDesiredFormat(value)} // Updated type
+              onValueChange={(value: DesiredFormatType) => setDesiredFormat(value)}
               value={desiredFormat}
               required
             >
