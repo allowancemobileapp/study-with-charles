@@ -29,5 +29,6 @@ export const useAppStore = create<AppState>((set) => ({
   setAiResult: (result) => set({ aiResult: result }),
 
   showVideoAd: false,
-  setShowVideoAd: (show) => set({ showVideoAd }),
+  setShowVideoAd: (show) => set({ showVideoAd: show }),
 }));
+
