@@ -51,18 +51,17 @@ export async function processAssignmentAction(
     
     const result = await summarizeContent(aiInput);
 
+    // The flow now throws an error if result is invalid, so this specific check might be redundant
+    // but kept for safety.
     if (!result || !result.result) {
-      return { message: "AI processing failed to return a result.", errors: { general: ["AI processing failed."] } };
+      return { message: "AI processing failed to return a result.", errors: { general: ["AI processing failed to return a valid result structure."] } };
     }
     
     return { result, message: "Processing successful!" };
 
   } catch (error) {
-    console.error("AI processing error:", error);
-    let errorMessage = "An unexpected error occurred during AI processing.";
-    if (error instanceof Error) {
-        errorMessage = error.message;
-    }
+    console.error("AI processing error from action:", error);
+    const errorMessage = (error instanceof Error && error.message) ? error.message : "An unexpected error occurred during AI processing.";
     return { message: errorMessage, errors: { general: [errorMessage] } };
   }
 }

@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview Summarizes uploaded content for quick review.
@@ -74,12 +75,21 @@ const summarizeContentFlow = ai.defineFlow(
     outputSchema: SummarizeContentOutputSchema,
   },
   async input => {
-    const {output} = await prompt(input);
-    if (!output) {
-      // This case should ideally be handled by Genkit/GoogleAI plugin throwing an error before this point
-      // if the generation fails significantly. But as a fallback:
-      throw new Error('AI model did not return an output.');
+    try {
+      const {output} = await prompt(input);
+      if (!output || typeof output.result !== 'string') {
+        // Log the problematic output for server-side debugging
+        console.error('AI model returned invalid or missing output structure:', output);
+        throw new Error('AI model did not return a valid output structure.');
+      }
+      return output;
+    } catch (e) {
+      console.error('Error during summarizeContentFlow execution:', e);
+      // Ensure a simple Error object is propagated
+      if (e instanceof Error) {
+        throw new Error(`AI flow failed: ${e.message}`);
+      }
+      throw new Error('An unknown error occurred in the AI flow.');
     }
-    return output;
   }
 );
