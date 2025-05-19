@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import React, { useState, useRef, useEffect, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -38,7 +38,7 @@ function SubmitButton() {
 }
 
 export function AssignmentForm() {
-  const [formState, formAction] = useFormState(processAssignmentAction, initialState);
+  const [formState, formAction] = useActionState(processAssignmentAction, initialState);
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
