@@ -15,10 +15,9 @@ export function LeftBannerAd() {
   }, []);
 
   // On the server, storeIsSubscribed is initially false, so the ad will be rendered.
-  // On the client, before useEffect runs, mounted is false.
-  // If mounted is true AND the user is subscribed, then we return null (hide the ad).
-  // Otherwise (either not mounted yet, or mounted and not subscribed), we show the ad.
+  // On the client, before useEffect runs, mounted is false, so the ad is also rendered initially.
   // This ensures the initial client render matches the server render.
+  // After mounting, if the user is subscribed, the component will return null.
   if (mounted && storeIsSubscribed) {
     return null;
   }
