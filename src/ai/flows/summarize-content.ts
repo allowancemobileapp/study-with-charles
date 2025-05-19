@@ -83,7 +83,7 @@ Desired Output Format: ${input.desiredFormat}
         },
       });
       
-      const output = response.output(); 
+      const output = response.output; // Corrected: use .output instead of .output()
 
       if (!output || typeof output.result !== 'string') {
         const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null';
@@ -102,3 +102,4 @@ Desired Output Format: ${input.desiredFormat}
     }
   }
 );
+
