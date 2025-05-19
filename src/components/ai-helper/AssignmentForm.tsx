@@ -51,10 +51,10 @@ export function AssignmentForm() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+      if (file.size > 4 * 1024 * 1024) { // 4MB limit
         toast({
           title: "File Too Large",
-          description: "Please upload a file smaller than 10MB.",
+          description: "Please upload a file smaller than 4MB.",
           variant: "destructive",
         });
         setSelectedFile(null);
@@ -146,14 +146,14 @@ export function AssignmentForm() {
           AI Assignment Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Upload your schoolwork (PDF, JPG, PNG, up to 10MB) and let our AI assist you.
+          Upload your schoolwork (PDF, JPG, PNG, up to 4MB) and let our AI assist you.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="file-upload" className="text-foreground flex items-center">
-              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File (Max 10MB)
+              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File (Max 4MB)
             </Label>
             <Input
               id="file-upload"
