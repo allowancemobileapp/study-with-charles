@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks } from "lucide-react";
+import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck } from "lucide-react";
 import { useAppStore } from '@/lib/store';
 import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns'; // For date formatting
@@ -20,6 +21,7 @@ interface TimetableEvent {
   date: string; // Store as YYYY-MM-DD
   time: string; // Store as HH:MM
   associatedResult?: string; // Placeholder for AI result content or ID
+  notifyByEmail?: boolean;
 }
 
 export default function TimetablePage() {
@@ -31,6 +33,7 @@ export default function TimetablePage() {
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
+  const [notifyByEmail, setNotifyByEmail] = useState(false);
   const [associatedResultText, setAssociatedResultText] = useState('');
 
   const { aiResult, isLoggedIn } = useAppStore();
@@ -71,6 +74,7 @@ export default function TimetablePage() {
     setDescription('');
     setDate('');
     setTime('');
+    setNotifyByEmail(false);
     setAssociatedResultText('');
     setEditingEvent(null);
     setIsFormOpen(false);
@@ -94,6 +98,7 @@ export default function TimetablePage() {
       date,
       time,
       associatedResult: associatedResultText || undefined,
+      notifyByEmail,
     };
 
     if (editingEvent) {
@@ -112,6 +117,7 @@ export default function TimetablePage() {
     setDescription(event.description);
     setDate(event.date);
     setTime(event.time);
+    setNotifyByEmail(event.notifyByEmail || false);
     setAssociatedResultText(event.associatedResult || '');
     setIsFormOpen(true);
   };
@@ -138,6 +144,10 @@ export default function TimetablePage() {
             <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen ? "Close Form" : "Add New Event"}
           </Button>
         </CardHeader>
+        <CardDescription className="px-6 pb-2 text-sm text-muted-foreground">
+            Organize your academic life. Add events, deadlines, and study sessions. 
+            Note: Email and social media notifications are conceptual placeholders and require further backend development to be functional.
+        </CardDescription>
 
         {isFormOpen && (
           <CardContent>
@@ -167,6 +177,12 @@ export default function TimetablePage() {
                     <Textarea id="associated-result" value={associatedResultText} readOnly className="bg-muted/50 h-20" />
                  </div>
               )}
+              <div className="flex items-center space-x-2">
+                <Checkbox id="notify-email" checked={notifyByEmail} onCheckedChange={(checked) => setNotifyByEmail(checked as boolean)} />
+                <Label htmlFor="notify-email" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground">
+                  Notify by Email (Conceptual)
+                </Label>
+              </div>
               <div className="flex justify-end space-x-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
                 <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
@@ -206,9 +222,15 @@ export default function TimetablePage() {
                       </Button>
                     </div>
                   </CardHeader>
-                  {event.description && (
-                    <CardContent className="pt-0 pb-3">
-                      <p className="text-sm text-foreground">{event.description}</p>
+                  {(event.description || event.notifyByEmail) && (
+                    <CardContent className="pt-0 pb-3 space-y-1">
+                      {event.description && <p className="text-sm text-foreground">{event.description}</p>}
+                      {event.notifyByEmail && (
+                        <div className="flex items-center text-xs text-sky-400">
+                            <MailCheck className="mr-1.5 h-3.5 w-3.5" />
+                            <span>Email notification active (conceptual)</span>
+                        </div>
+                      )}
                     </CardContent>
                   )}
                   {event.associatedResult && (

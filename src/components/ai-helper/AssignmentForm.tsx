@@ -151,7 +151,8 @@ export function AssignmentForm() {
         });
       }
     }
-  }, [formState, setAiResult, router, isSubscribed, setShowVideoAd, toast, isLoggedIn]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState, router, isSubscribed, setAiResult, setShowVideoAd, toast, isLoggedIn]);
 
 
   return (
@@ -164,14 +165,29 @@ export function AssignmentForm() {
           AI Assignment Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Upload schoolwork (PDF, JPG, PNG, up to 4MB), type a question, or both!
+          Type a question, upload schoolwork (PDF, JPG, PNG, up to 4MB), or both!
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
+            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
+              <Pilcrow className="mr-2 h-5 w-5 text-primary" /> Type Your Question/Text (Optional)
+            </Label>
+            <Textarea
+              id="user-text-query"
+              placeholder="e.g., Explain the theory of relativity, or paste assignment questions here..."
+              value={userTextQuery}
+              onChange={(e) => setUserTextQuery(e.target.value)}
+              className="focus-visible:ring-accent"
+              rows={4}
+            />
+            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive">{formState.errors.userTextQuery.join(', ')}</p>}
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="file-upload" className="text-foreground flex items-center">
-              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Upload File (Optional, Max 4MB)
+              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Or Upload File (Optional, Max 4MB)
             </Label>
             <Input
               id="file-upload"
@@ -183,21 +199,6 @@ export function AssignmentForm() {
             />
             {selectedFile && <p className="text-sm text-muted-foreground">Selected: {selectedFile.name}</p>}
              {formState?.errors?.fileDataUri && <p className="text-sm text-destructive">{formState.errors.fileDataUri.join(', ')}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
-              <Pilcrow className="mr-2 h-5 w-5 text-primary" /> Or Type Your Question/Text (Optional)
-            </Label>
-            <Textarea
-              id="user-text-query"
-              placeholder="e.g., Explain the theory of relativity, or paste assignment questions here..."
-              value={userTextQuery}
-              onChange={(e) => setUserTextQuery(e.target.value)}
-              className="focus-visible:ring-accent"
-              rows={4}
-            />
-            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive">{formState.errors.userTextQuery.join(', ')}</p>}
           </div>
 
           <div className="space-y-2">
@@ -254,5 +255,3 @@ export function AssignmentForm() {
     </Card>
   );
 }
-
-    
