@@ -38,7 +38,7 @@ export async function processAssignmentAction(
       return {
         errors: validatedFields.error.flatten().fieldErrors,
         message: "Validation failed. Please check your inputs.",
-        result: null, // Ensure result is explicitly null for error states
+        result: null,
       };
     }
 
@@ -50,36 +50,28 @@ export async function processAssignmentAction(
       desiredFormat,
     };
     
-    // The summarizeContent flow is expected to handle its own errors and
-    // throw a standard Error if something goes wrong, or return SummarizeContentOutput.
-    // Any error thrown by summarizeContent will be caught by the catch block below.
     const resultFromFlow = await summarizeContent(aiInput);
     
-    // If the flow completes successfully, resultFromFlow should be valid.
-    // The flow itself checks for !output || typeof output.result !== 'string'
-    // and throws an error if that condition is met.
     return { 
       result: resultFromFlow, 
       message: "Processing successful!",
-      // errors can be undefined if there are no errors
     };
 
   } catch (error) { 
-    console.error("Error in processAssignmentAction (server):", error); // Log the full error on the server
+    console.error("CRITICAL ERROR in processAssignmentAction (server):", error); 
     
     let errorMessage = "An unexpected server error occurred. Please check server logs for details and try again.";
     if (error instanceof Error) {
-        // Use the message from the error caught, which might be from the AI flow
-        errorMessage = error.message; 
+        errorMessage = `AI Processing Error: ${error.message}`; 
     } else if (typeof error === 'string') {
-        errorMessage = error;
+        errorMessage = `AI Processing Error: ${error}`;
     }
     
-    // Return a consistent, serializable error state
+    // Return a very simple error state to ensure serializability
     return {
-      message: errorMessage, 
-      errors: { general: [errorMessage] },
-      result: null, 
+      message: errorMessage,
+      result: null,
+      errors: { general: [errorMessage] } // Keep general error message for UI
     };
   }
 }

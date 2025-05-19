@@ -55,17 +55,12 @@ Desired Output Format: ${input.desiredFormat}
     } else if (input.desiredFormat === 'Summary') {
       taskInstruction = 'Based on the file provided, provide a concise summary of its content.';
     } else if (input.desiredFormat === 'Question Answering') {
-      // This flow doesn't take a specific question. So, provide a general analysis.
       taskInstruction = "Based on the file provided, and since a specific question was not given for the 'Question Answering' format, please provide a general analysis and detailed summary of the uploaded file's key information, concepts, and themes.";
     } else {
-      // Fallback, though enum should prevent this
       taskInstruction = `Process the content and provide it in the specified format: ${input.desiredFormat}.`;
     }
 
-    // Rely on output: { schema: SummarizeContentOutputSchema } to enforce JSON.
-    // Explicitly asking for JSON in the prompt text can sometimes conflict.
-
-    const promptMessages: (({text: string} | {media: {url: string}}))[] = [
+    const promptMessages: ({text: string} | {media: {url: string}})[] = [
       {text: introText},
       {text: "File Content (appears after this line):"},
       {media: {url: input.fileDataUri}},
@@ -75,8 +70,8 @@ Desired Output Format: ${input.desiredFormat}
     try {
       const response = await ai.generate({
         prompt: promptMessages as PromptData[],
-        model: ai.getModel(),
-        output: { schema: SummarizeContentOutputSchema }, // Instructs model to adhere to this schema
+        model: 'googleai/gemini-1.5-flash-latest', // Explicitly set model
+        output: { schema: SummarizeContentOutputSchema }, 
         config: {
           safetySettings: [
             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
@@ -96,7 +91,7 @@ Desired Output Format: ${input.desiredFormat}
       }
       return output;
     } catch (e) {
-      console.error('Error during summarizeContentFlow execution:', e);
+      console.error('Error during summarizeContentFlow execution (AI Flow):', e);
       if (e instanceof Error) {
         throw new Error(`AI flow failed: ${e.message}`);
       }
@@ -104,4 +99,3 @@ Desired Output Format: ${input.desiredFormat}
     }
   }
 );
-
