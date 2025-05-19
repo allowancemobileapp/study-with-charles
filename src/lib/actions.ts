@@ -27,13 +27,21 @@ export async function processAssignmentAction(
   prevState: AssignmentFormState | undefined,
   formData: FormData
 ): Promise<AssignmentFormState> {
+  console.log("Server Action: processAssignmentAction initiated.");
+  
+  const rawFormData = {
+    fileDataUri: formData.get("fileDataUri"),
+    subjectTitle: formData.get("subjectTitle"),
+    desiredFormat: formData.get("desiredFormat"),
+  };
+  console.log("Server Action: Raw form data received:", {
+    subjectTitle: rawFormData.subjectTitle,
+    desiredFormat: rawFormData.desiredFormat,
+    fileDataUriLength: typeof rawFormData.fileDataUri === 'string' ? rawFormData.fileDataUri.length : 0,
+  });
+
   try {
-    console.log("Server Action: processAssignmentAction initiated.");
-    const validatedFields = AssignmentFormSchema.safeParse({
-      fileDataUri: formData.get("fileDataUri"),
-      subjectTitle: formData.get("subjectTitle"),
-      desiredFormat: formData.get("desiredFormat"),
-    });
+    const validatedFields = AssignmentFormSchema.safeParse(rawFormData);
 
     if (!validatedFields.success) {
       console.error("Server Action: Validation failed.", validatedFields.error.flatten().fieldErrors);
@@ -45,7 +53,7 @@ export async function processAssignmentAction(
     }
 
     const { fileDataUri, subjectTitle, desiredFormat } = validatedFields.data;
-    console.log("Server Action: Validation successful. Input:", { subjectTitle, desiredFormat });
+    console.log("Server Action: Validation successful. Input to AI flow:", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri.length });
 
     const aiInput: SummarizeContentInput = {
       fileDataUri,
@@ -55,7 +63,7 @@ export async function processAssignmentAction(
     
     console.log("Server Action: Calling AI flow summarizeContent...");
     const resultFromFlow = await summarizeContent(aiInput);
-    console.log("Server Action: AI flow completed. Result:", resultFromFlow);
+    console.log("Server Action: AI flow completed. Result from flow:", JSON.stringify(resultFromFlow, null, 2).substring(0, 300) + "...");
     
     return { 
       result: resultFromFlow, 
@@ -63,25 +71,26 @@ export async function processAssignmentAction(
       errors: {}, // Explicitly clear errors on success
     };
 
-  } catch (error) { 
-    // Log the detailed error on the server for debugging
-    console.error("CRITICAL ERROR in processAssignmentAction (server):", error); 
+  } catch (error: unknown) { 
+    console.error("CRITICAL ERROR in processAssignmentAction (server):");
+    let errorMessage = "An unexpected server error occurred during AI processing. Please try again.";
     
-    // Determine a user-friendly error message
-    let errorMessage = "An unexpected server error occurred. Please try again.";
     if (error instanceof Error) {
-        // Use the message from the Error object if it's a standard Error
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
         errorMessage = `AI Processing Error: ${error.message}`; 
     } else if (typeof error === 'string') {
-        // If the error is just a string
+        console.error("Error (string):", error);
         errorMessage = `AI Processing Error: ${error}`;
+    } else {
+        console.error("Unknown error type in server action:", error);
     }
     
-    // Return a simplified and serializable error state to the client
     return {
-      message: errorMessage, // This will be displayed to the user
+      message: errorMessage,
       result: null,
-      errors: { general: [errorMessage] } // Keep general error message for UI
+      errors: { general: [errorMessage] }
     };
   }
 }
