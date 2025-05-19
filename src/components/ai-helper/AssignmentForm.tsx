@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare, Pilcrow, SearchCheck } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, Pilcrow } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -164,8 +164,8 @@ export function AssignmentForm() {
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-2xl border-primary/50 bg-card/80 backdrop-blur-sm">
       <CardHeader className="text-center">
-        <div className="mx-auto p-3 bg-primary/20 rounded-full w-fit mb-4 border-2 border-primary shadow-lg">
-          <BotMessageSquare size={48} className="text-primary" />
+        <div className="mx-auto p-3 bg-primary/20 rounded-full w-fit mb-4 border-2 border-primary shadow-lg text-4xl">
+          😊
         </div>
         <CardTitle className="text-3xl font-bold text-primary">
           AI Helper
