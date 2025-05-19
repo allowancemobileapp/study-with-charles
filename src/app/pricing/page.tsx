@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle, Zap, ShieldCheck, XCircle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
-import Image from "next/image";
 
 const features = {
   free: [
@@ -66,7 +65,9 @@ export default function PricingPage() {
         {/* Free Plan Card */}
         <Card className="border-border/50 bg-card/70 backdrop-blur-sm shadow-lg flex flex-col">
           <CardHeader className="text-center">
-            <Image src="https://placehold.co/150x150.png?text=Free+Tier" alt="Free Tier Icon" width={100} height={100} className="mx-auto mb-4 rounded-full border-4 border-muted shadow-md" data-ai-hint="badge icon" />
+            <div className="mx-auto mb-4 rounded-full border-4 border-muted shadow-md h-28 w-28 flex items-center justify-center text-6xl bg-muted/20">
+              😊
+            </div>
             <CardTitle className="text-3xl font-semibold text-muted-foreground">Free Tier</CardTitle>
             <CardDescription className="text-lg text-muted-foreground">Get Started</CardDescription>
             <p className="text-4xl font-bold text-foreground mt-2">N0 <span className="text-sm font-normal text-muted-foreground">/ month</span></p>
@@ -94,7 +95,9 @@ export default function PricingPage() {
             BEST VALUE
           </div>
            <CardHeader className="text-center">
-            <Image src="https://placehold.co/150x150.png?text=Premium+Tier" alt="Premium Tier Icon" width={100} height={100} className="mx-auto mb-4 rounded-full border-4 border-primary shadow-primary/50 shadow-md" data-ai-hint="premium badge icon" />
+            <div className="mx-auto mb-4 rounded-full border-4 border-primary shadow-primary/50 shadow-md h-28 w-28 flex items-center justify-center text-6xl bg-primary/10">
+              🤩
+            </div>
             <CardTitle className="text-3xl font-semibold text-primary">Premium Plan</CardTitle>
             <CardDescription className="text-lg text-primary/80">Full Power</CardDescription>
             <p className="text-4xl font-bold text-foreground mt-2">N1000 <span className="text-sm font-normal text-muted-foreground">/ month</span></p>
