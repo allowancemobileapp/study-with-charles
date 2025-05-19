@@ -21,8 +21,6 @@ export function Header() {
 
   const handleSignIn = () => {
     setIsLoggedIn(true);
-    // Set a generic user placeholder
-    // In a real app, this data would come from an authentication provider
     setCurrentUser({ name: "Signed-in User", email: "user@example.com" });
   };
 
@@ -57,7 +55,7 @@ export function Header() {
           {isLoggedIn ? (
             <div className="flex items-center space-x-3">
               {currentUser?.avatar ? (
-                <Image src={currentUser.avatar} alt={currentUser.name} width={32} height={32} className="rounded-full border-2 border-primary" data-ai-hint="avatar user" />
+                <Image src={currentUser.avatar} alt={currentUser.name || 'User Avatar'} width={32} height={32} className="rounded-full border-2 border-primary" data-ai-hint="avatar user" />
               ) : (
                 <UserCircle className="h-7 w-7 text-primary" />
               )}
@@ -83,16 +81,20 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] sm:w-[400px] bg-background p-6">
               <nav className="flex flex-col space-y-4">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.label}
-                    href={link.href}
-                    className="flex items-center space-x-3 rounded-md p-2 text-lg transition-colors hover:bg-accent/10 hover:text-accent"
-                  >
-                    {typeof link.icon === "string" ? <BotMessageSquare className="h-6 w-6" /> : link.icon} 
-                    <span>{link.label}</span>
-                  </Link>
-                ))}
+                {navLinks.map((link) => {
+                  const IconComponent = link.icon;
+                  return (
+                    <Link
+                      key={link.label}
+                      href={link.href}
+                      className="flex items-center space-x-3 rounded-md p-2 text-lg transition-colors hover:bg-accent/10 hover:text-accent"
+                    >
+                      {/* Check if IconComponent is a function (Lucide component) or an element (inline SVG) */}
+                      {typeof IconComponent === 'function' ? <IconComponent className="h-6 w-6" /> : IconComponent}
+                      <span>{link.label}</span>
+                    </Link>
+                  );
+                })}
               </nav>
             </SheetContent>
           </Sheet>
