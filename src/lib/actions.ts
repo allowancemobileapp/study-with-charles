@@ -9,11 +9,11 @@ const AssignmentFormSchema = z.object({
     message: "File data must be a valid data URI.",
   }).optional(),
   subjectTitle: z.string().min(1, "Subject title is required."),
-  desiredFormat: z.enum(['Text', 'Summary', 'Question Answering']),
+  desiredFormat: z.enum(['Text', 'Summary', 'Question Answering', 'Explain']), // Added 'Explain'
   userTextQuery: z.string().optional(),
 }).refine(data => data.fileDataUri || (data.userTextQuery && data.userTextQuery.trim().length > 0), {
   message: "Please provide either a file or a text query.",
-  // path: ["fileDataUri"], // You can choose a general path or a specific one like fileDataUri or userTextQuery
+  path: ["general"], // Changed path to general for better error display
 });
 
 
@@ -30,16 +30,17 @@ export type AssignmentFormState = {
 };
 
 export async function processAssignmentAction(
-  prevState: AssignmentFormState | undefined,
+  // prevState: AssignmentFormState | undefined, // prevState is not explicitly used here by useActionState pattern.
+  _prevState: unknown, // useActionState will pass the previous state here.
   formData: FormData
 ): Promise<AssignmentFormState> {
   console.log("Server Action: processAssignmentAction initiated.");
   
   const rawFormData = {
-    fileDataUri: formData.get("fileDataUri") || undefined, // Ensure undefined if not present
+    fileDataUri: formData.get("fileDataUri") || undefined, 
     subjectTitle: formData.get("subjectTitle"),
     desiredFormat: formData.get("desiredFormat"),
-    userTextQuery: formData.get("userTextQuery") || undefined, // Ensure undefined if not present
+    userTextQuery: formData.get("userTextQuery") || undefined, 
   };
   console.log("Server Action: Raw form data received:", {
     subjectTitle: rawFormData.subjectTitle,
@@ -64,15 +65,15 @@ export async function processAssignmentAction(
     console.log("Server Action: Validation successful. Input to AI flow:", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri?.length, userTextQuery });
 
     const aiInput: SummarizeContentInput = {
-      fileDataUri: fileDataUri || undefined, // Pass undefined if not present
+      fileDataUri: fileDataUri || undefined, 
       subjectTitle,
       desiredFormat,
-      userTextQuery: userTextQuery || undefined, // Pass undefined if not present
+      userTextQuery: userTextQuery || undefined, 
     };
     
     console.log("Server Action: Calling AI flow summarizeContent...");
     const resultFromFlow = await summarizeContent(aiInput);
-    console.log("Server Action: AI flow completed. Result from flow:", JSON.stringify(resultFromFlow, null, 2).substring(0, 300) + "...");
+    console.log("Server Action: AI flow completed. Result from flow (first 300 chars):", JSON.stringify(resultFromFlow, null, 2).substring(0, 300) + "...");
     
     return { 
       result: resultFromFlow, 
@@ -97,11 +98,9 @@ export async function processAssignmentAction(
     }
     
     return {
-      message: errorMessage,
+      message: errorMessage, // Pass the specific error message
       result: null,
-      errors: { general: [errorMessage] }
+      errors: { general: [errorMessage] } // Populate general errors
     };
   }
 }
-
-    

@@ -2,6 +2,9 @@
 import type { SummarizeContentInput, SummarizeContentOutput } from '@/ai/flows/summarize-content';
 import { create } from 'zustand';
 
+// Add 'Explain' to the possible desired formats
+type DesiredFormatType = 'Text' | 'Summary' | 'Question Answering' | 'Explain';
+
 interface AppState {
   isLoggedIn: boolean;
   setIsLoggedIn: (isLoggedIn: boolean) => void;
@@ -17,8 +20,14 @@ interface AppState {
     subjectTitle: string | null;
     fileDataUri: string | null;
     userTextQuery: string | null;
+    desiredFormat: DesiredFormatType | null; // Added desiredFormat
   } | null;
-  setLastAiInput: (input: { subjectTitle: string | null; fileDataUri: string | null; userTextQuery: string | null } | null) => void;
+  setLastAiInput: (input: { 
+    subjectTitle: string | null; 
+    fileDataUri: string | null; 
+    userTextQuery: string | null;
+    desiredFormat: DesiredFormatType | null; // Added desiredFormat
+  } | null) => void;
 
   showVideoAd: boolean;
   setShowVideoAd: (show: boolean) => void;
@@ -41,3 +50,6 @@ export const useAppStore = create<AppState>((set) => ({
   showVideoAd: false,
   setShowVideoAd: (show) => set((state) => ({ ...state, showVideoAd: show })),
 }));
+
+// Export the type for use in other files if needed
+export type { DesiredFormatType };

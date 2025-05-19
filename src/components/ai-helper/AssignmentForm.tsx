@@ -3,14 +3,14 @@
 
 import React, { useState, useRef, useEffect, useActionState, useTransition } from 'react';
 import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
-import { useAppStore } from '@/lib/store';
+import { useAppStore, type DesiredFormatType } from '@/lib/store'; // Import DesiredFormatType
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare, Pilcrow } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, BotMessageSquare, Pilcrow, SearchCheck } from "lucide-react"; // Added SearchCheck
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -22,8 +22,8 @@ const initialState: AssignmentFormState = {
 };
 
 export function AssignmentForm() {
-  const [formState, formAction] = useActionState(processAssignmentAction, initialState);
-  const [isPending, startTransition] = useTransition();
+  const [formState, formAction, isPending] = useActionState(processAssignmentAction, initialState);
+  // const [isPending, startTransition] = useTransition(); // useActionState provides isPending
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
@@ -31,7 +31,7 @@ export function AssignmentForm() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDataUri, setFileDataUri] = useState<string | null>(null);
   const [subjectTitle, setSubjectTitle] = useState('');
-  const [desiredFormat, setDesiredFormat] = useState<'Text' | 'Summary' | 'Question Answering' | undefined>();
+  const [desiredFormat, setDesiredFormat] = useState<DesiredFormatType | undefined>(); // Updated type
   const [userTextQuery, setUserTextQuery] = useState('');
 
   function SubmitButton() {
@@ -113,9 +113,9 @@ export function AssignmentForm() {
     formData.append('subjectTitle', subjectTitle);
     formData.append('desiredFormat', desiredFormat);
     
-    startTransition(() => {
-      formAction(formData);
-    });
+    // startTransition(() => { // useActionState handles transitions implicitly when formAction is passed to <form action> or called directly for non-form submissions
+    formAction(formData);
+    // });
   };
 
   useEffect(() => {
@@ -141,7 +141,8 @@ export function AssignmentForm() {
         setLastAiInput({ // Store the input that led to this successful result
           subjectTitle: subjectTitle,
           fileDataUri: fileDataUri,
-          userTextQuery: userTextQuery
+          userTextQuery: userTextQuery,
+          desiredFormat: desiredFormat || null, // Store desiredFormat
         });
         if (!isSubscribed) {
           setShowVideoAd(true); 
@@ -157,7 +158,7 @@ export function AssignmentForm() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formState, router, isSubscribed, setAiResult, setShowVideoAd, toast, isLoggedIn, setLastAiInput, subjectTitle, fileDataUri, userTextQuery]);
+  }, [formState, router, isSubscribed, setAiResult, setShowVideoAd, toast, isLoggedIn, setLastAiInput, subjectTitle, fileDataUri, userTextQuery, desiredFormat]);
 
 
   return (
@@ -170,7 +171,7 @@ export function AssignmentForm() {
           AI Assignment Helper
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Type a question, upload schoolwork (PDF, JPG, PNG, up to 4MB), or both!
+          Type a question, upload schoolwork (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -227,7 +228,7 @@ export function AssignmentForm() {
               <ListChecks className="mr-2 h-5 w-5 text-primary" /> Desired Result Format
             </Label>
             <Select 
-              onValueChange={(value: 'Text' | 'Summary' | 'Question Answering') => setDesiredFormat(value)}
+              onValueChange={(value: DesiredFormatType) => setDesiredFormat(value)} // Updated type
               value={desiredFormat}
               required
             >
@@ -238,6 +239,7 @@ export function AssignmentForm() {
                 <SelectItem value="Text">Text Extraction / Assignment Solver</SelectItem>
                 <SelectItem value="Summary">Summary</SelectItem>
                 <SelectItem value="Question Answering">Generate Q&amp;A</SelectItem>
+                <SelectItem value="Explain">Explain Topic/Question</SelectItem> 
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}

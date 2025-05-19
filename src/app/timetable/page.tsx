@@ -8,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye } from "lucide-react"; // Added Eye
-import { useAppStore } from '@/lib/store';
-import { useSearchParams } from 'next/navigation';
+import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye, Info } from "lucide-react"; 
+import { useAppStore, type DesiredFormatType } from '@/lib/store';
+import { useSearchParams, useRouter } from 'next/navigation'; // Added useRouter
 import { format } from 'date-fns'; 
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -38,10 +38,11 @@ interface TimetableEvent {
   date: string; 
   time: string; 
   associatedResult?: string; 
+  originalFormat?: DesiredFormatType | string | null; // Store original format
   notifyByEmail?: boolean;
 }
 
-interface QAItem { // For parsing Q&A in view modal
+interface QAItem { 
   Question: string | null | undefined;
   Answer: string | null | undefined;
 }
@@ -56,14 +57,17 @@ export default function TimetablePage() {
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notifyByEmail, setNotifyByEmail] = useState(false);
-  const [associatedResultText, setAssociatedResultText] = useState(''); // Stores full AI result text for form
+  const [associatedResultText, setAssociatedResultText] = useState(''); 
+  const [currentOriginalFormat, setCurrentOriginalFormat] = useState<DesiredFormatType | string | null | undefined>(null);
 
-  const { aiResult, isLoggedIn, isSubscribed } = useAppStore();
+
+  const { aiResult, isLoggedIn, isSubscribed, lastAiInput } = useAppStore();
   const searchParams = useSearchParams();
+  const router = useRouter(); // For clearing searchParams
   const { toast } = useToast();
 
-  // For View Result Modal
   const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
+  const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
   const [isViewResultModalOpen, setIsViewResultModalOpen] = useState(false);
 
   useEffect(() => {
@@ -89,19 +93,22 @@ export default function TimetablePage() {
   useEffect(() => {
     if (searchParams.get('action') === 'schedule_result' && aiResult?.result) {
       setIsFormOpen(true);
-      setEditingEvent(null); // Ensure we are adding a new event
+      setEditingEvent(null); 
       setTitle("Review AI Result for Scheduling");
-      setAssociatedResultText(aiResult.result); // Store FULL AI result
-      // Reset other form fields for a new event based on AI result
-      setDescription(`AI generated content for subject: ${aiResult.result.substring(0,30)}...`);
+      setAssociatedResultText(aiResult.result); 
+      setCurrentOriginalFormat(lastAiInput?.desiredFormat || 'Unknown'); // Get format from lastAiInput
+      
+      setDescription(`AI generated content (Format: ${lastAiInput?.desiredFormat || 'Unknown'}) for subject: ${lastAiInput?.subjectTitle || 'N/A'}. Preview: ${aiResult.result.substring(0,30)}...`);
       const today = new Date();
       setDate(format(today, 'yyyy-MM-dd'));
       setTime(format(today, 'HH:mm'));
       setNotifyByEmail(false);
-      // Clear the action from searchParams or useAppStore to prevent re-triggering if needed (not strictly necessary here)
+      
+      // Clear the action from searchParams to prevent re-triggering
+      // router.replace('/timetable', { scroll: false }); // Or router.push without the param
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, aiResult?.result]); // Depend on aiResult.result for re-trigger if it changes
+  }, [searchParams, aiResult?.result, lastAiInput, router]);
 
   const resetForm = () => {
     setTitle('');
@@ -110,6 +117,7 @@ export default function TimetablePage() {
     setTime('');
     setNotifyByEmail(false);
     setAssociatedResultText('');
+    setCurrentOriginalFormat(null);
     setEditingEvent(null);
     setIsFormOpen(false);
   };
@@ -131,7 +139,8 @@ export default function TimetablePage() {
       description,
       date,
       time,
-      associatedResult: associatedResultText || undefined, // Save the full AI result text
+      associatedResult: associatedResultText || undefined,
+      originalFormat: currentOriginalFormat || (editingEvent ? editingEvent.originalFormat : 'Unknown'),
       notifyByEmail: isSubscribed ? notifyByEmail : false, 
     };
 
@@ -152,7 +161,8 @@ export default function TimetablePage() {
     setDate(event.date);
     setTime(event.time);
     setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
-    setAssociatedResultText(event.associatedResult || ''); // Load full result for editing
+    setAssociatedResultText(event.associatedResult || ''); 
+    setCurrentOriginalFormat(event.originalFormat || 'Unknown');
     setIsFormOpen(true);
   };
 
@@ -163,8 +173,9 @@ export default function TimetablePage() {
   
   const todayFormatted = format(new Date(), 'yyyy-MM-dd');
 
-  const handleViewResult = (resultText: string) => {
+  const handleViewResult = (resultText: string, originalFormat?: DesiredFormatType | string | null) => {
     setViewResultModalContent(resultText);
+    setViewResultModalOriginalFormat(originalFormat || "Unknown");
     setIsViewResultModalOpen(true);
   };
 
@@ -224,7 +235,7 @@ export default function TimetablePage() {
               </div>
               {associatedResultText && (
                  <div className="space-y-2">
-                    <Label htmlFor="associated-result-preview" className="text-foreground">Associated AI Result (Preview)</Label>
+                    <Label htmlFor="associated-result-preview" className="text-foreground">Associated AI Result (Preview) - Format: {currentOriginalFormat || "Unknown"}</Label>
                     <Textarea id="associated-result-preview" value={associatedResultText.substring(0,200) + (associatedResultText.length > 200 ? "..." : "")} readOnly className="bg-muted/50 h-20" />
                  </div>
               )}
@@ -289,13 +300,18 @@ export default function TimetablePage() {
                       <p className="text-sm text-muted-foreground">
                         {format(new Date(event.date + 'T' + event.time), 'EEE, MMM d, yyyy')} at {format(new Date(event.date + 'T' + event.time), 'p')}
                       </p>
+                       {event.originalFormat && event.originalFormat !== "Unknown" && (
+                        <p className="text-xs text-accent flex items-center mt-1">
+                          <Info size={12} className="mr-1" /> AI Result Format: {event.originalFormat}
+                        </p>
+                      )}
                     </div>
                     <div className="flex space-x-1">
                       {event.associatedResult && (
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                               <Button variant="ghost" size="icon" onClick={() => handleViewResult(event.associatedResult!)} className="text-sky-400 hover:text-sky-300">
+                               <Button variant="ghost" size="icon" onClick={() => handleViewResult(event.associatedResult!, event.originalFormat)} className="text-sky-400 hover:text-sky-300">
                                 <Eye className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
@@ -337,8 +353,8 @@ export default function TimetablePage() {
                     </CardContent>
                   )}
                   {event.associatedResult && (
-                     <CardFooter className="text-xs text-accent bg-accent/10 py-2 px-4 rounded-b-md">
-                        <span className="font-semibold">AI Result Associated:</span> {event.associatedResult.substring(0,50)}...
+                     <CardFooter className="text-xs text-muted-foreground bg-muted/30 py-2 px-4 rounded-b-md border-t">
+                        <span className="font-semibold mr-1 text-foreground">AI Result Associated:</span> {event.associatedResult.substring(0,50)}...
                      </CardFooter>
                   )}
                 </Card>
@@ -348,26 +364,30 @@ export default function TimetablePage() {
         </CardContent>
       </Card>
 
-      {/* View Result Modal */}
       <Dialog open={isViewResultModalOpen} onOpenChange={setIsViewResultModalOpen}>
-        <DialogContent className="max-w-2xl min-h-[300px] max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-2xl min-h-[300px] max-h-[80vh] flex flex-col bg-card border-border">
           <DialogHeader>
-            <DialogTitle>Scheduled AI Result</DialogTitle>
-            <DialogDescription>Details of the AI result associated with this event.</DialogDescription>
+            <DialogTitle className="text-primary">Scheduled AI Result</DialogTitle>
+            <DialogDescription>
+              Details of the AI result associated with this event. 
+              {viewResultModalOriginalFormat && viewResultModalOriginalFormat !== "Unknown" && (
+                <span className="block mt-1 text-sm text-accent">Original Format: {viewResultModalOriginalFormat}</span>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <ScrollArea className="flex-grow w-full rounded-md border p-4 my-4 bg-background">
             {viewResultModalContent && (() => {
-              if (isQAResultForModal(viewResultModalContent)) {
+              if (viewResultModalOriginalFormat === 'Question Answering' && isQAResultForModal(viewResultModalContent)) {
                 try {
-                  const parsed = JSON.parse(viewResultModalContent) as QAItem[];
+                  const parsedResult = JSON.parse(viewResultModalContent) as QAItem[];
                   return (
                     <div>
-                      {parsed.map((qa, index) => (
-                        <div key={index} className="mb-6 pb-4 border-b border-border/50 last:border-b-0 last:pb-0">
-                          <p className="font-semibold text-primary mb-1">Question:</p>
-                          <p className="whitespace-pre-wrap mb-3 text-foreground">{String(qa.Question ?? 'N/A')}</p>
-                          <p className="font-semibold text-accent mb-1">Answer:</p>
-                          <p className="whitespace-pre-wrap text-foreground">{String(qa.Answer ?? 'N/A')}</p>
+                      {parsedResult.map((qa, index) => (
+                        <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
+                          <p className="text-lg font-semibold text-primary">Question:</p>
+                          <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
+                          <p className="text-lg font-semibold text-accent">Answer:</p>
+                          <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
                         </div>
                       ))}
                     </div>
@@ -377,7 +397,8 @@ export default function TimetablePage() {
                   return <pre className="whitespace-pre-wrap text-sm text-foreground">{viewResultModalContent}</pre>;
                 }
               }
-              return <pre className="whitespace-pre-wrap text-sm text-foreground">{viewResultModalContent}</pre>;
+              // For 'Text', 'Summary', 'Explain', or fallback
+              return <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">{viewResultModalContent}</pre>;
             })()}
           </ScrollArea>
           <DialogFooter>
@@ -391,4 +412,3 @@ export default function TimetablePage() {
     </div>
   );
 }
-
