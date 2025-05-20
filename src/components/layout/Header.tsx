@@ -21,12 +21,12 @@ const navLinks = [
 ];
 
 export function Header() {
-  const { 
-    isLoggedIn, 
-    currentUser, 
-    setIsLoggedIn, 
-    setCurrentUser, 
-    isSubscribed 
+  const {
+    isLoggedIn,
+    currentUser,
+    setIsLoggedIn,
+    setCurrentUser,
+    isSubscribed
   } = useAppStore();
   const { toast } = useToast();
 
@@ -60,7 +60,11 @@ export function Header() {
       console.error("Error during sign in:", error);
       let description = error.message || "Could not sign in with Google. Please try again.";
       if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
-        description = "The sign-in popup was closed. Please try again and ensure popups are not blocked for this site.";
+        description = "Sign-in popup was closed or cancelled. Please ensure popups are not blocked and try again.";
+      } else if (error.code === 'auth/popup-blocked') {
+        description = "Sign-in popup was blocked by the browser. Please disable your popup blocker for this site and try again.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        description = "This domain is not authorized for sign-in. Please contact support or ensure the correct domain is authorized in the Firebase project settings.";
       }
       toast({
         title: "Sign In Failed",
