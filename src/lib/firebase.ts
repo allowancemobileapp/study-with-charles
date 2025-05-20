@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAnWkVeFPvYTuEsfAjn9JInlLS7Q7eKmzw",
   authDomain: "study-with-charles.firebaseapp.com",
   projectId: "study-with-charles",
-  storageBucket: "study-with-charles.appspot.com", // Corrected common typo: .appspot.com not .firebasestorage.app
+  storageBucket: "study-with-charles.firebasestorage.app", // Ensuring this matches user-provided config
   messagingSenderId: "153889575294",
   appId: "1:153889575294:web:0e8917b8f678f298bbe32f",
   measurementId: "G-WE20QXQRER"
@@ -37,3 +37,4 @@ if (typeof window !== 'undefined') {
 }
 
 export { app, auth, googleProvider, analytics };
+
