@@ -2,12 +2,15 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image"; 
-import React from 'react'; 
+import Image from "next/image";
+import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"; // Added SheetHeader, SheetTitle
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, BotMessageSquare, UserCircle, LogIn, LogOut, Crown, DollarSign, Info, Mail } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { auth, googleProvider } from "@/lib/firebase"; // Import Firebase auth
+import { signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser } from "firebase/auth";
+import { useToast } from "@/hooks/use-toast";
 
 const navLinks = [
   { href: "/", label: "Study", icon: BotMessageSquare },
@@ -18,16 +21,66 @@ const navLinks = [
 ];
 
 export function Header() {
-  const { isLoggedIn, currentUser, setIsLoggedIn, setCurrentUser, isSubscribed } = useAppStore();
+  const { 
+    isLoggedIn, 
+    currentUser, 
+    setIsLoggedIn, 
+    setCurrentUser, 
+    isSubscribed 
+  } = useAppStore();
+  const { toast } = useToast();
 
-  const handleSignIn = () => {
-    setIsLoggedIn(true);
-    setCurrentUser({ name: "Signed-in User", email: "user@example.com" });
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user: FirebaseUser | null) => {
+      if (user) {
+        setIsLoggedIn(true);
+        setCurrentUser({
+          name: user.displayName || "User",
+          email: user.email || "",
+          avatar: user.photoURL || undefined,
+        });
+      } else {
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+      }
+    });
+    return () => unsubscribe(); // Cleanup subscription on unmount
+  }, [setIsLoggedIn, setCurrentUser]);
+
+  const handleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+      toast({
+        title: "Signed In Successfully!",
+        description: `Welcome, ${user.displayName}!`,
+        className: "bg-green-500/10 border-green-500",
+      });
+    } catch (error: any) {
+      console.error("Error during sign in:", error);
+      toast({
+        title: "Sign In Failed",
+        description: error.message || "Could not sign in with Google. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleSignOut = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      toast({
+        title: "Signed Out",
+        description: "You have been successfully signed out.",
+      });
+    } catch (error: any) {
+      console.error("Error during sign out:", error);
+      toast({
+        title: "Sign Out Failed",
+        description: error.message || "Could not sign out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -53,14 +106,14 @@ export function Header() {
         </nav>
 
         <div className="flex items-center space-x-3">
-          {isLoggedIn ? (
+          {isLoggedIn && currentUser ? (
             <div className="flex items-center space-x-3">
-              {currentUser?.avatar ? (
+              {currentUser.avatar ? (
                 <Image src={currentUser.avatar} alt={currentUser.name || 'User Avatar'} width={32} height={32} className="rounded-full border-2 border-primary" data-ai-hint="avatar user"/>
               ) : (
                 <UserCircle className="h-7 w-7 text-primary" />
               )}
-              <span className="hidden sm:inline text-sm text-muted-foreground">{currentUser?.name}</span>
+              <span className="hidden sm:inline text-sm text-muted-foreground">{currentUser.name}</span>
               {isSubscribed && <Crown className="h-5 w-5 text-yellow-400" />}
               <Button variant="ghost" size="icon" onClick={handleSignOut} aria-label="Sign Out">
                 <LogOut className="h-5 w-5 text-destructive" />
@@ -94,10 +147,10 @@ export function Header() {
                       className="flex items-center space-x-3 rounded-md p-2 text-lg transition-colors hover:bg-accent/10 hover:text-accent"
                     >
                       {React.isValidElement(IconComponent)
-                        ? IconComponent 
-                        : (IconComponent && typeof IconComponent === 'function' 
-                            ? <IconComponent className="h-6 w-6" /> 
-                            : null) 
+                        ? IconComponent
+                        : (IconComponent && typeof IconComponent === 'function'
+                            ? <IconComponent className="h-6 w-6" />
+                            : null)
                       }
                       <span>{link.label}</span>
                     </Link>

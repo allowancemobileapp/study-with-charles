@@ -5,7 +5,6 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import Image from "next/image";
 
 interface VideoAdModalProps {
   isOpen: boolean;
@@ -47,9 +46,11 @@ export function VideoAdModal({ isOpen, onSkip, onClose }: VideoAdModalProps) {
         </DialogHeader>
         <div className="my-4 p-4 rounded-lg bg-secondary/50 flex flex-col items-center">
           <p className="text-sm text-muted-foreground mb-2">Your results will be shown after this short ad.</p>
-          <div className="w-full h-64 bg-muted rounded-md overflow-hidden flex items-center justify-center my-2">
-            {/* Placeholder for video ad */}
-            <Image src="https://placehold.co/480x320.png?text=Video+Ad+Placeholder" alt="Video Ad" width={480} height={320} className="object-cover" data-ai-hint="advertisement video" />
+          <div 
+            className="w-full h-64 bg-muted/60 rounded-md overflow-hidden flex items-center justify-center my-2 text-muted-foreground border border-dashed border-border"
+            aria-label="Video Ad Placeholder"
+          >
+            <span className="text-lg">Video Ad Placeholder</span>
           </div>
           <Progress value={progress} className="w-full h-2 my-2 [&>div]:bg-accent" />
           <p className="text-sm text-muted-foreground mt-1">

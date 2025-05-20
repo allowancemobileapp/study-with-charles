@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle, Zap, ShieldCheck, XCircle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
+import { auth } from "@/lib/firebase"; // For checking if user is signed in
 
 const features = {
   free: [
@@ -16,7 +17,7 @@ const features = {
   ],
   premium: [
     { text: "Full AI Helper Access", included: true },
-    { text: "Advanced Timetable Features", included: true },
+    { text: "Advanced Timetable Features (Email Notifications)", included: true },
     { text: "Ad-Free Experience", included: true },
     { text: "Priority Email Support", included: true },
     { text: "Automatic Email Submission (Coming Soon)", included: true },
@@ -24,19 +25,19 @@ const features = {
 };
 
 export default function PricingPage() {
-  const { isSubscribed, setIsSubscribed, isLoggedIn } = useAppStore();
+  const { isSubscribed, setIsSubscribed } = useAppStore();
   const { toast } = useToast();
 
   const handleSubscribe = () => {
-    if (!isLoggedIn) {
+    if (!auth.currentUser) { // Check Firebase auth state
       toast({ title: "Please Sign In", description: "You need to be signed in to subscribe.", variant: "destructive" });
       return;
     }
-    // Simulate subscription process
+    // Simulate subscription process - In a real app, this would involve Stripe/payment gateway.
     setIsSubscribed(true);
     toast({
       title: "Subscription Activated!",
-      description: "Welcome to Study with Charles Premium!",
+      description: "Welcome to Study with Charles Premium! (Simulated)",
       className: "bg-green-500/10 border-green-500",
     });
   };
@@ -45,7 +46,7 @@ export default function PricingPage() {
     setIsSubscribed(false);
     toast({
       title: "Subscription Cancelled",
-      description: "Your Study with Charles Premium subscription has been cancelled.",
+      description: "Your Study with Charles Premium subscription has been cancelled. (Simulated)",
       variant: "destructive"
     });
   };
@@ -113,13 +114,15 @@ export default function PricingPage() {
             </ul>
           </CardContent>
           <CardFooter>
+            {/* This is where real payment integration like Stripe would go.
+                For now, it simulates the subscription state change. */}
             {isSubscribed ? (
                <Button onClick={handleCancelSubscription} variant="destructive" className="w-full">
-                Cancel Subscription
+                Cancel Subscription (Simulated)
               </Button>
             ) : (
               <Button onClick={handleSubscribe} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Zap className="mr-2 h-4 w-4" /> Subscribe Now
+                <Zap className="mr-2 h-4 w-4" /> Subscribe Now (Simulated)
               </Button>
             )}
           </CardFooter>
@@ -127,6 +130,9 @@ export default function PricingPage() {
       </div>
        <p className="text-center text-muted-foreground mt-12 text-sm">
         All payments are processed securely. You can cancel your subscription at any time.
+      </p>
+       <p className="text-center text-muted-foreground mt-2 text-xs">
+        (Note: Payment and subscription system is currently simulated for demonstration.)
       </p>
     </div>
   );

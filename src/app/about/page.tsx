@@ -1,15 +1,14 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Target, Brain } from "lucide-react";
-import Image from "next/image";
 
 export default function AboutPage() {
   return (
     <div className="container mx-auto py-12 px-4">
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-primary/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
-          <Image src="https://placehold.co/600x300.png" alt="Team working on computers" width={600} height={300} className="rounded-lg mb-6 mx-auto shadow-lg border-2 border-accent" data-ai-hint="team collaboration" />
-          <CardTitle className="text-4xl font-bold text-primary">
+          {/* Image removed as per request */}
+          <CardTitle className="text-4xl font-bold text-primary mt-4">
             About Study with Charles
           </CardTitle>
           <CardDescription className="text-lg text-muted-foreground mt-2">

@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, Send, MessageSquare, User, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import Image from "next/image";
 
 export default function ContactPage() {
   const { toast } = useToast();
@@ -43,8 +42,8 @@ export default function ContactPage() {
     <div className="container mx-auto py-12 px-4">
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm">
         <CardHeader className="text-center">
-           <Image src="https://placehold.co/600x250.png" alt="Cyberpunk communication array" width={600} height={250} className="rounded-lg mb-6 mx-auto shadow-lg border-2 border-primary" data-ai-hint="communication network" />
-          <CardTitle className="text-4xl font-bold text-primary">
+          {/* Image removed as per request */}
+          <CardTitle className="text-4xl font-bold text-primary mt-4">
             Get In Touch
           </CardTitle>
           <CardDescription className="text-lg text-muted-foreground mt-2">
@@ -79,8 +78,8 @@ export default function ContactPage() {
         <CardFooter className="mt-8 flex flex-col items-center text-center">
             <Building className="h-8 w-8 text-accent mb-2" />
             <p className="text-sm text-muted-foreground">Study with Charles HQ</p>
-            <p className="text-xs text-muted-foreground">123 Cyber Street, Neo City, Future Earth</p>
-            <p className="text-xs text-muted-foreground">support@studywithcharles.io</p>
+            <p className="text-xs text-muted-foreground">Planet Viltrum, in Space</p>
+            <p className="text-xs text-muted-foreground">email coming soon...</p>
         </CardFooter>
       </Card>
     </div>
