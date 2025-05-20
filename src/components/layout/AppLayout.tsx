@@ -4,9 +4,10 @@
 import type React from 'react';
 import { Header } from "./Header";
 import { Footer } from "./Footer";
-import { LeftBannerAd } from "@/components/layout/LeftBannerAd"; // Changed to absolute path
+import { LeftBannerAd } from "@/components/layout/LeftBannerAd";
 import { useAppStore } from "@/lib/store";
-import { VideoAdModal } from '@/components/ai-helper/VideoAdModal'; // Ensure this path is correct
+import { VideoAdModal } from '@/components/ai-helper/VideoAdModal';
+import ErrorBoundary from './ErrorBoundary'; // Add this import
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { showVideoAd, setShowVideoAd, isSubscribed } = useAppStore();
@@ -22,9 +23,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1">
         <LeftBannerAd />
         <main className="flex-1 lg:ml-[200px] p-4 sm:p-6 lg:p-8 overflow-y-auto">
-          {/* Adjust lg:ml-[200px] to match LeftBannerAd width */}
-           {/* If LeftBannerAd is hidden on smaller screens, this margin might not be needed or needs to be conditional */}
-          {children}
+          <ErrorBoundary 
+            fallback={
+              <div style={{ padding: '20px', textAlign: 'center' }}>
+                <h2>An error occurred loading this page content.</h2>
+                <p>Please try refreshing.</p>
+              </div>
+            }
+          >
+            {children}
+          </ErrorBoundary>
         </main>
       </div>
       <Footer />

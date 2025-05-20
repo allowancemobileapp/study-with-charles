@@ -20,7 +20,7 @@ const SummarizeContentInputSchema = z.object({
     ).optional(),
   subjectTitle: z.string().describe('The title of the subject or course.'),
   desiredFormat: z
-    .enum(['Text', 'Summary', 'Question Answering', 'Explain']) 
+    .enum(['Text', 'Summary', 'Question Answering', 'Explain'])
     .describe('The desired format of the summarized content.'),
   userTextQuery: z.string().optional().describe('An optional direct text query or question from the user.'),
 });
@@ -42,11 +42,11 @@ const summarizeContentFlow = ai.defineFlow(
     outputSchema: SummarizeContentOutputSchema,
   },
   async (input) => {
-    console.log("AI Flow: summarizeContentFlow - Initiated with input:", { 
-      subjectTitle: input.subjectTitle, 
-      desiredFormat: input.desiredFormat, 
-      fileDataUriLength: input.fileDataUri?.length,
-      userTextQueryPresent: !!input.userTextQuery 
+    console.log("AI Flow: summarizeContentFlow - Initiated with input:", {
+      subjectTitle: input.subjectTitle,
+      desiredFormat: input.desiredFormat,
+      fileDataUriLength: input.fileDataUri?.length || 0,
+      userTextQueryPresent: !!input.userTextQuery
     });
 
     const promptMessages: ({text: string} | {media: {url: string}})[] = [];
@@ -59,7 +59,7 @@ const summarizeContentFlow = ai.defineFlow(
       if (input.fileDataUri) {
         promptMessages.push({ text: `The user has provided a text query AND a file. Use the file as primary context to answer/address the user's text query.\nUser's query: "${input.userTextQuery}"\nFile Content (appears after this line):` });
         promptMessages.push({ media: { url: input.fileDataUri } });
-        
+
         if (input.desiredFormat === 'Text') {
             mainInstruction = `Based on the user's query and the provided file, extract relevant text or solve any assignment questions implied by the query using information from the file. Present the solution as a well-structured document. If the query doesn't seem to be an assignment question, provide a comprehensive textual answer to the query using the file as context.`;
         } else if (input.desiredFormat === 'Summary') {
@@ -84,7 +84,7 @@ const summarizeContentFlow = ai.defineFlow(
     } else if (input.fileDataUri) { // Only fileDataUri
       promptMessages.push({ text: `You will receive a file (provided as media content) and the desired format for the result. Your task is to process the file and provide the result in the requested format.\nFile Content (appears after this line):`});
       promptMessages.push({ media: { url: input.fileDataUri } });
-      
+
       if (input.desiredFormat === 'Text') {
         mainInstruction = `You are an AI assistant specializing in solving academic assignments.
 Your task is to analyze the provided file content (which could be a document or an image of an assignment).
@@ -101,7 +101,7 @@ If you DO NOT find any specific assignment questions or problems to solve in the
 
 Do not add any conversational preamble or unrelated text to your response.`;
       } else if (input.desiredFormat === 'Summary') {
-        mainInstruction = 'Based on the file provided, provide a concise and comprehensive summary of its key content, concepts, and main points. Focus on extracting the core ideas and presenting them clearly.';
+        mainInstruction = 'Based on the file provided, provide a concise and comprehensive summary of its key content, concepts,and main points. Focus on extracting the core ideas and presenting them clearly.';
       } else if (input.desiredFormat === 'Question Answering') {
          mainInstruction = `You are an AI study assistant. Based on the provided file content, generate 3-5 distinct study questions and their corresponding concise answers.
 The entire output for this task MUST be a single, valid JSON string.
@@ -122,18 +122,22 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
       console.error("AI Flow: summarizeContentFlow - Neither fileDataUri nor userTextQuery provided. This should be caught by validation.");
       throw new Error("No input provided to AI flow. Please provide a file or a text query.");
     }
-    
+
     promptMessages.push({ text: "\nTask Instructions (follow these carefully based on the input provided and desired format):\n" + mainInstruction });
-    
+
+    console.log("AI Flow: summarizeContentFlow - Final prompt messages preview (first 500 chars of text parts):",
+      JSON.stringify(promptMessages.map(p => 'text' in p ? { text: p.text.substring(0, 500) + (p.text.length > 500 ? "..." : "") } : { media: "[Media Object]" }), null, 2)
+    );
+
     try {
-      console.log("AI Flow: summarizeContentFlow - Calling ai.generate with model 'googleai/gemini-1.5-flash-latest'. Prompt messages preview (first 500 chars):", JSON.stringify(promptMessages, null, 2).substring(0, 500) + "...");
-      
+      console.log("AI Flow: summarizeContentFlow - Calling ai.generate with model 'googleai/gemini-1.5-flash-latest'.");
+
       const response = await ai.generate({
-        prompt: promptMessages as PromptData[], 
-        model: 'googleai/gemini-1.5-flash-latest', 
-        output: { schema: SummarizeContentOutputSchema }, 
+        prompt: promptMessages as PromptData[],
+        model: 'googleai/gemini-1.5-flash-latest',
+        output: { schema: SummarizeContentOutputSchema },
         config: {
-          safetySettings: [ 
+          safetySettings: [
             { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
             { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -141,20 +145,21 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
           ],
         },
       });
-      
-      console.log("AI Flow: summarizeContentFlow - Raw response object from ai.generate():", JSON.stringify(response, null, 2).substring(0, 500) + "...");
-      const output = response.output;
+
+      console.log("AI Flow: summarizeContentFlow - Raw response object from ai.generate():", JSON.stringify(response, null, 2).substring(0, 1000) + (JSON.stringify(response).length > 1000 ? "..." : ""));
+      const output = response.output; // Correct: output is a property
 
       if (!output || typeof output.result !== 'string') {
-        const receivedOutput = output ? JSON.stringify(output, null, 2) : 'null or undefined';
-        console.error('AI Flow: summarizeContentFlow - AI model returned invalid or missing output structure. Output received:', receivedOutput);
-        console.error('AI Flow: summarizeContentFlow - Full response object from ai.generate():', JSON.stringify(response, null, 2));
-        throw new Error('AI model did not return a valid output structure. Expected a JSON object with a "result" string field.');
+        const receivedOutputDetails = output ? JSON.stringify(output, null, 2) : 'null or undefined output field';
+        console.error('AI Flow: summarizeContentFlow - AI model returned invalid or missing output structure. Output.result was not a string. Output received:', receivedOutputDetails);
+        console.error('AI Flow: summarizeContentFlow - Full response object for context:', JSON.stringify(response, null, 2));
+        throw new Error('AI model did not return a valid output. Expected a JSON object with a "result" string field.');
       }
       console.log("AI Flow: summarizeContentFlow - Successfully received and parsed output. Result length:", output.result.length);
+      console.log("AI Flow: summarizeContentFlow - Result preview (first 300 chars):", output.result.substring(0,300) + (output.result.length > 300 ? "..." : ""));
       return output;
 
-    } catch (e: unknown) { 
+    } catch (e: unknown) {
       console.error('CRITICAL ERROR in AI Flow (summarizeContentFlow): Details below.');
       let errorMessage = 'AI flow failed during processing.';
       if (e instanceof Error) {
@@ -170,6 +175,7 @@ Ensure the JSON syntax is perfect, including correct use of quotes for all keys 
         console.error('Unknown error type caught:', e);
         errorMessage = 'An unknown error occurred in the AI flow processing.';
       }
+      // Throw a new, simple error to ensure it's serializable by the server action
       throw new Error(errorMessage);
     }
   }
