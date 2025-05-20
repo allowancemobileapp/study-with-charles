@@ -13,7 +13,7 @@ import { signInWithPopup, signOut, onAuthStateChanged, type User as FirebaseUser
 import { useToast } from "@/hooks/use-toast";
 
 const navLinks = [
-  { href: "/", label: "Study", icon: UserCircle }, // Placeholder, to be updated if specific Study icon is desired
+  { href: "/", label: "Study", icon: UserCircle },
   { href: "/timetable", label: "Timetable", icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg> },
   { href: "/pricing", label: "Pricing", icon: DollarSign },
   { href: "/about", label: "About Us", icon: Info },
@@ -58,9 +58,13 @@ export function Header() {
       });
     } catch (error: any) {
       console.error("Error during sign in:", error);
+      let description = error.message || "Could not sign in with Google. Please try again.";
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        description = "The sign-in popup was closed. Please try again and ensure popups are not blocked for this site.";
+      }
       toast({
         title: "Sign In Failed",
-        description: error.message || "Could not sign in with Google. Please try again.",
+        description: description,
         variant: "destructive",
       });
     }
