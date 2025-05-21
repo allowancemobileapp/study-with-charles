@@ -27,7 +27,7 @@ if (typeof process !== 'undefined' && process.env) {
     }
   } else {
     apiKeyPresent = false;
-    const errorMessage = `CRITICAL_GENKIT_INIT_ERROR: None of the expected Google AI API key environment variables (${apiKeyEnvVars.join(', ')}) are set. GoogleAI plugin will NOT be initialized. AI features will NOT work.`;
+    const errorMessage = `CRITICAL_GENKIT_INIT_ERROR: None of the expected Google AI API key environment variables (${apiKeyEnvVars.join(', ')}) are set. GoogleAI plugin will NOT be initialized. AI features will NOT work. Please set one of these environment variables on your hosting platform.`;
     console.error(errorMessage);
     initializationErrors.push(`Google AI API key not found in environment variables: ${apiKeyEnvVars.join(', ')}.`);
   }
@@ -41,7 +41,7 @@ const pluginsToUse: GenkitPlugin[] = [];
 if (googleAiPluginInstance) {
   pluginsToUse.push(googleAiPluginInstance);
 } else {
-  console.warn('GENKIT_INIT_WARNING: GoogleAI plugin instance is not available. Genkit will be initialized without it. AI features will not function.');
+  console.warn('GENKIT_INIT_WARNING: GoogleAI plugin instance is not available. Genkit will be initialized without it. AI features will not function. Ensure your API key is correctly set as an environment variable on your hosting platform.');
 }
 
 export const ai = genkit({
@@ -57,3 +57,4 @@ export const genkitSetupDetails = {
   isGoogleAIPluginActive: !!googleAiPluginInstance,
   initializationErrors: initializationErrors,
 };
+
