@@ -49,14 +49,15 @@ export function VideoAdModal({ isOpen, onSkip, onClose }: VideoAdModalProps) {
           {/*
             Future Video Ad Integration:
             This section would be replaced with your video ad network's player
-            or integration code (e.g., Google Ad Manager, or other video ad providers).
+            or integration code (e.g., Google Ad Manager, VAST/VPAID tags, etc.).
             This often involves including their SDK and configuring ad tags.
+            The placeholder div below is for visual prototyping.
           */}
-          <div 
-            className="w-full h-64 bg-muted/60 rounded-md overflow-hidden flex items-center justify-center my-2 text-muted-foreground border border-dashed border-border"
+          <div
+            className="w-full h-64 bg-muted/60 rounded-md overflow-hidden flex items-center justify-center my-2 text-muted-foreground border border-dashed border-border/70"
             aria-label="Video Ad Placeholder"
           >
-            <span className="text-lg">Video Ad Placeholder</span>
+            <span className="text-lg">Video Ad Content Area</span>
           </div>
           <Progress value={progress} className="w-full h-2 my-2 [&>div]:bg-accent" />
           <p className="text-sm text-muted-foreground mt-1">
@@ -77,4 +78,3 @@ export function VideoAdModal({ isOpen, onSkip, onClose }: VideoAdModalProps) {
     </Dialog>
   );
 }
-
