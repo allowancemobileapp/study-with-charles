@@ -13,7 +13,7 @@ export function LeftBannerAd() {
     setMounted(true);
   }, []);
 
-  if (mounted && storeIsSubscribed) {
+  if (!mounted || storeIsSubscribed) {
     return null;
   }
 
@@ -23,11 +23,17 @@ export function LeftBannerAd() {
     >
       <div className="flex flex-col items-center space-y-4 w-full">
         <p className="text-sm font-semibold text-center text-foreground">Advertisement</p>
+        {/* 
+          Future AdSense Integration:
+          Replace the div below with your AdSense ad unit code.
+          Ensure your site is approved by AdSense and follows their policies.
+          Example ad unit size: 160x600 (Skyscraper) or similar vertical format.
+        */}
         <div 
           className="w-[160px] h-[500px] bg-muted/50 rounded-md shadow-md flex items-center justify-center text-muted-foreground border border-dashed border-border"
-          aria-label="Ad Slot"
+          aria-label="Ad Slot Placeholder (e.g., 160x500)"
         >
-          <span className="text-sm p-2 text-center">Banner Ad Slot (160x500)</span>
+          <span className="text-sm p-2 text-center">Ad Slot (160x500)</span>
         </div>
         <p className="text-xs text-muted-foreground text-center">
           <Link href="/pricing" className="underline hover:text-primary">Subscribe</Link> to remove ads.
@@ -36,3 +42,4 @@ export function LeftBannerAd() {
     </aside>
   );
 }
+

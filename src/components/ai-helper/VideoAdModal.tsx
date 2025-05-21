@@ -46,6 +46,12 @@ export function VideoAdModal({ isOpen, onSkip, onClose }: VideoAdModalProps) {
         </DialogHeader>
         <div className="my-4 p-4 rounded-lg bg-secondary/50 flex flex-col items-center">
           <p className="text-sm text-muted-foreground mb-2">Your results will be shown after this short ad.</p>
+          {/*
+            Future Video Ad Integration:
+            This section would be replaced with your video ad network's player
+            or integration code (e.g., Google Ad Manager, or other video ad providers).
+            This often involves including their SDK and configuring ad tags.
+          */}
           <div 
             className="w-full h-64 bg-muted/60 rounded-md overflow-hidden flex items-center justify-center my-2 text-muted-foreground border border-dashed border-border"
             aria-label="Video Ad Placeholder"
@@ -71,3 +77,4 @@ export function VideoAdModal({ isOpen, onSkip, onClose }: VideoAdModalProps) {
     </Dialog>
   );
 }
+

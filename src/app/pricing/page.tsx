@@ -34,6 +34,9 @@ export default function PricingPage() {
       return;
     }
     // Simulate subscription process - In a real app, this would involve Stripe/payment gateway.
+    // For a real implementation, you would initiate a Stripe Checkout session here.
+    // After successful payment, Stripe webhooks would update the user's subscription status
+    // (likely in a backend database like Firestore) and then update the Zustand store.
     setIsSubscribed(true);
     toast({
       title: "Subscription Activated!",
@@ -43,6 +46,7 @@ export default function PricingPage() {
   };
   
   const handleCancelSubscription = () => {
+    // In a real app, this would involve calling your backend to cancel the Stripe subscription.
     setIsSubscribed(false);
     toast({
       title: "Subscription Cancelled",
@@ -114,8 +118,6 @@ export default function PricingPage() {
             </ul>
           </CardContent>
           <CardFooter>
-            {/* This is where real payment integration like Stripe would go.
-                For now, it simulates the subscription state change. */}
             {isSubscribed ? (
                <Button onClick={handleCancelSubscription} variant="destructive" className="w-full">
                 Cancel Subscription (Simulated)
@@ -137,3 +139,4 @@ export default function PricingPage() {
     </div>
   );
 }
+
