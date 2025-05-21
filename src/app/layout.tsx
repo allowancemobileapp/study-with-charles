@@ -5,7 +5,7 @@ import './globals.css';
 import { AppProvider } from '@/providers/AppProvider';
 import { Toaster } from "@/components/ui/toaster";
 import { AppLayout } from '@/components/layout/AppLayout';
-// import Script from 'next/script'; // Temporarily commented out
+// import Script from 'next/script'; // Temporarily commented out for AdSense
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
