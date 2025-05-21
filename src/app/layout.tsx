@@ -5,7 +5,7 @@ import './globals.css';
 import { AppProvider } from '@/providers/AppProvider';
 import { Toaster } from "@/components/ui/toaster";
 import { AppLayout } from '@/components/layout/AppLayout';
-import Script from 'next/script'; // Import next/script
+// import Script from 'next/script'; // Temporarily commented out
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -30,12 +30,14 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        {/*
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3263315632914230"
           crossOrigin="anonymous"
-          strategy="afterInteractive" // Ensures it loads without blocking initial page render
+          strategy="afterInteractive"
         />
+        */}
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <AppProvider>
