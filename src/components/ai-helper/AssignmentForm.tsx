@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks, Paperclip, PencilLine, X as XIcon, Brain } from "lucide-react"; // Added Brain
+import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks, Paperclip, PencilLine, X as XIcon, Brain } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -22,16 +22,16 @@ const initialState: AssignmentFormState = {
 };
 
 const EMOJI_LIST = ['😊', '📚', '💡', '👍', '✨', '🚀', '🧠', '🤓', '🎉', '🤖'];
-const EMOJI_INTERVAL = 2500; // 2.5 seconds
+const EMOJI_INTERVAL = 2500;
 
 export function AssignmentForm() {
   const [formState, formAction, isProcessing] = useActionState(processAssignmentAction, initialState);
-  const [, startTransition] = useTransition(); 
+  const [, startTransition] = useTransition();
   
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null); // For the hidden file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDataUri, setFileDataUri] = useState<string | null>(null);
   const [subjectTitle, setSubjectTitle] = useState('');
@@ -75,7 +75,7 @@ export function AssignmentForm() {
         });
         setSelectedFile(null);
         setFileDataUri(null);
-        if(fileInputRef.current) fileInputRef.current.value = ""; // Reset the hidden input
+        if(fileInputRef.current) fileInputRef.current.value = ""; 
         return;
       }
       setSelectedFile(file);
@@ -94,7 +94,7 @@ export function AssignmentForm() {
     setSelectedFile(null);
     setFileDataUri(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset the hidden file input
+      fileInputRef.current.value = "";
     }
   };
 
@@ -148,7 +148,7 @@ export function AssignmentForm() {
           title: "Error",
           description: errorMessages,
           variant: "destructive",
-          icon: <AlertCircle className="text-red-500" />,
+          icon: <AlertCircleIcon className="text-red-500" />,
         });
       } 
       else if (formState.result && formState.result.result) {
@@ -193,14 +193,14 @@ export function AssignmentForm() {
           Hi, I'm Charles. Let's study...
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Type a question, upload schoolwork (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
+          Type your question, upload/snap a note (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="user-text-query" className="text-foreground flex items-center">
-              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question &amp; Optional File
+              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question & Optional File
             </Label>
             <div className="relative">
               <Textarea
@@ -209,14 +209,14 @@ export function AssignmentForm() {
                 value={userTextQuery}
                 onChange={(e) => setUserTextQuery(e.target.value)}
                 className="focus-visible:ring-accent pr-10 py-2" 
-                rows={4} // Reduced rows
+                rows={4}
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7" // Adjusted position
+                className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7"
                 aria-label="Attach file"
                 title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
               >
@@ -239,7 +239,6 @@ export function AssignmentForm() {
             {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
             {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Click the 📎 to attach a file. Max 4MB: PDF, JPG, PNG, TXT, DOCX.</p>}
 
-            {/* Hidden file input */}
             <Input
               id="file-upload-hidden"
               ref={fileInputRef}
@@ -279,10 +278,10 @@ export function AssignmentForm() {
                 <SelectValue placeholder="Select format..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Summary">Summary</SelectItem>
+                <SelectItem value="Summary">Summarize</SelectItem>
                 <SelectItem value="Question Answering">Generate Q&amp;A</SelectItem>
                 <SelectItem value="Explain">Explain Topic/Question</SelectItem> 
-                <SelectItem value="Text">Text Extraction / Assignment Solver</SelectItem>
+                <SelectItem value="Text">Abeg solve my Assignment...</SelectItem>
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
@@ -290,7 +289,7 @@ export function AssignmentForm() {
           
           {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat || formState?.errors?.userTextQuery) && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive">
-              <AlertCircle className="h-4 w-4" />
+              <AlertCircleIcon className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>
                 {formState.errors.general.join(' ')}
@@ -305,3 +304,5 @@ export function AssignmentForm() {
     </Card>
   );
 }
+
+    
