@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks, Paperclip, PencilLine, X as XIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -31,7 +31,7 @@ export function AssignmentForm() {
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
   const router = useRouter();
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); // For the hidden file input
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileDataUri, setFileDataUri] = useState<string | null>(null);
   const [subjectTitle, setSubjectTitle] = useState('');
@@ -76,7 +76,7 @@ export function AssignmentForm() {
         });
         setSelectedFile(null);
         setFileDataUri(null);
-        if(fileInputRef.current) fileInputRef.current.value = "";
+        if(fileInputRef.current) fileInputRef.current.value = ""; // Reset the hidden input
         return;
       }
       setSelectedFile(file);
@@ -88,6 +88,14 @@ export function AssignmentForm() {
     } else {
       setSelectedFile(null);
       setFileDataUri(null);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setFileDataUri(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Reset the hidden file input
     }
   };
 
@@ -104,7 +112,7 @@ export function AssignmentForm() {
     if (!fileDataUri && !userTextQuery.trim()) {
       toast({
         title: "Input Required",
-        description: "Please upload a file or enter a text query.",
+        description: "Please type a question or attach a file.",
         variant: "destructive",
       });
       return;
@@ -186,32 +194,61 @@ export function AssignmentForm() {
           Hi, I'm Charles. Let's study...
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Type a question, upload schoolwork (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
+          Type your question or paste text. You can also attach a file using the paperclip icon.
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          <div className="space-y-2"> {/* Combined input area */}
-            <Textarea
-              id="user-text-query"
-              placeholder="Type your question, paste text, or describe your assignment here..."
-              value={userTextQuery}
-              onChange={(e) => setUserTextQuery(e.target.value)}
-              className="focus-visible:ring-accent"
-              rows={4}
-            />
+          <div className="space-y-2">
+            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
+              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Query & Optional File
+            </Label>
+            <div className="relative">
+              <Textarea
+                id="user-text-query"
+                placeholder="Type your question, paste text, or describe your assignment here..."
+                value={userTextQuery}
+                onChange={(e) => setUserTextQuery(e.target.value)}
+                className="focus-visible:ring-accent pr-12 py-2" 
+                rows={5}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground hover:text-primary p-1"
+                aria-label="Attach file"
+                title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+            </div>
             {formState?.errors?.userTextQuery && <p className="text-sm text-destructive mt-1">{formState.errors.userTextQuery.join(', ')}</p>}
+            
+            {selectedFile && (
+              <div className="text-sm text-muted-foreground mt-2 flex items-center justify-between bg-secondary/30 p-2 rounded-md border">
+                <div className="flex items-center truncate min-w-0">
+                  <FileText className="mr-2 h-4 w-4 text-primary shrink-0" />
+                  <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-destructive hover:text-destructive/80 h-7 w-7 p-1 shrink-0 ml-2">
+                  <XIcon className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+            {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
+            {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Click the 📎 to attach a file. Max 4MB: PDF, JPG, PNG, TXT, DOCX.</p>}
 
+            {/* Hidden file input */}
             <Input
-              id="file-upload"
+              id="file-upload-hidden"
               ref={fileInputRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
               onChange={handleFileChange}
-              className="file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent w-full"
+              className="hidden"
             />
-            {selectedFile && <p className="text-sm text-muted-foreground mt-1">Selected: {selectedFile.name}</p>}
-             {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
           </div>
 
           <div className="space-y-2">
@@ -269,3 +306,6 @@ export function AssignmentForm() {
     </Card>
   );
 }
+
+
+    
