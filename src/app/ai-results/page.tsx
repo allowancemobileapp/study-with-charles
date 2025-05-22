@@ -1,11 +1,11 @@
 
 "use client";
 
-import React, { useEffect, useActionState, useState, useTransition } from 'react'; // Added useTransition
+import React, { useEffect, useActionState, useState, useTransition } from 'react'; 
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckCircle, AlertCircle as AlertCircleIcon } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckCircle, AlertCircle as AlertCircleIcon, ArrowLeft } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +37,7 @@ export default function AiResultsPage() {
   const { toast } = useToast();
 
   const [generateMoreFormState, generateMoreAction, isGeneratingMore] = useActionState(processAssignmentAction, initialGenerateMoreState);
-  const [isPendingTransition, startTransition] = useTransition(); // For generateMoreAction
+  const [isPendingTransition, startTransition] = useTransition(); 
   
   const [currentDisplayResult, setCurrentDisplayResult] = useState(aiResult?.result || "");
 
@@ -140,11 +140,10 @@ export default function AiResultsPage() {
       try {
         const parsed = JSON.parse(resultText) as QAItem[];
         return parsed.map((qa: QAItem, index: number) =>
-            `Question ${index + 1}:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}\n\n---\n\n`
+            `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}\n\n---\n\n`
         ).join('');
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON. Error:", e, "Problematic JSON:", resultText.substring(0,200));
-         // Fallback to raw text
       }
     }
     return resultText; 
@@ -191,7 +190,6 @@ export default function AiResultsPage() {
   };
 
   const handleSchedule = () => {
-    // aiResult is already in the store, timetable page will pick it up
     router.push('/timetable?action=schedule_result');
   };
 
@@ -215,7 +213,7 @@ export default function AiResultsPage() {
     formData.append('subjectTitle', lastAiInput.subjectTitle);
     formData.append('desiredFormat', 'Question Answering'); 
 
-    startTransition(() => { // Wrap action call in startTransition
+    startTransition(() => { 
       generateMoreAction(formData);
     });
   };
@@ -225,9 +223,9 @@ export default function AiResultsPage() {
     if (!currentDisplayResult) return <p className="text-muted-foreground">No result content to display.</p>;
     const resultText = currentDisplayResult;
     
-    if (isQAResult(resultText)) {
-      try {
-        const parsedResult = JSON.parse(resultText) as QAItem[];
+    try {
+      const parsedResult = JSON.parse(resultText) as QAItem[];
+      if (Array.isArray(parsedResult) && parsedResult.length > 0 && 'Question' in parsedResult[0] && 'Answer' in parsedResult[0]) {
         return (
           <div>
             {parsedResult.map((qa, index) => (
@@ -240,16 +238,15 @@ export default function AiResultsPage() {
             ))}
           </div>
         );
-      } catch (e) {
+      }
+    } catch (e) {
+      // Not valid Q&A JSON, or malformed. Log error if it was expected to be Q&A.
+      if (lastAiInput?.desiredFormat === 'Question Answering') {
         console.error("AIResultsPage renderContent: Could not parse result as Q&A JSON. Error:", e, "Problematic JSON:", resultText.substring(0,500));
-        return (
-          <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
-            {resultText}
-          </pre>
-        );
       }
     }
 
+    // Fallback for non-Q&A text or if Q&A parsing failed
     return (
       <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
         {resultText}
@@ -320,6 +317,9 @@ export default function AiResultsPage() {
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-6 space-y-3 sm:space-y-0">
           <div className="flex flex-wrap gap-2">
+             <Button variant="outline" onClick={() => router.back()} className="flex-grow sm:flex-grow-0 border-primary text-primary hover:bg-primary/10">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
             <Button variant="outline" onClick={handleCopy} className="flex-grow sm:flex-grow-0 border-primary text-primary hover:bg-primary/10">
               <Copy className="mr-2 h-4 w-4" /> Copy Result
             </Button>
@@ -353,3 +353,4 @@ export default function AiResultsPage() {
   );
 }
 
+    

@@ -9,8 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks, Paperclip, PencilLine, X as XIcon, Brain } from "lucide-react";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertCircle as AlertCircleIconLucide, CheckCircle, Loader2, FileText, ListChecks, Paperclip, X as XIcon, Brain, PencilLine } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -148,7 +148,7 @@ export function AssignmentForm() {
           title: "Error",
           description: errorMessages,
           variant: "destructive",
-          icon: <AlertCircleIcon className="text-red-500" />,
+          icon: <AlertCircleIconLucide className="text-red-500" />,
         });
       } 
       else if (formState.result && formState.result.result) {
@@ -180,7 +180,7 @@ export function AssignmentForm() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [formState, router, isSubscribed, setAiResult, setShowVideoAd, toast, isLoggedIn, setLastAiInput, subjectTitle, fileDataUri, userTextQuery, desiredFormat]);
+  }, [formState]);
 
 
   return (
@@ -192,9 +192,6 @@ export function AssignmentForm() {
         <CardTitle className="text-3xl font-bold text-primary">
           Hi, I'm Charles. Let's study...
         </CardTitle>
-        <CardDescription className="text-muted-foreground">
-          Type your question, upload/snap a note (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
-        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
@@ -209,7 +206,7 @@ export function AssignmentForm() {
                 value={userTextQuery}
                 onChange={(e) => setUserTextQuery(e.target.value)}
                 className="focus-visible:ring-accent pr-10 py-2" 
-                rows={4}
+                rows={4} 
               />
               <Button
                 type="button"
@@ -280,8 +277,8 @@ export function AssignmentForm() {
               <SelectContent>
                 <SelectItem value="Summary">Summarize</SelectItem>
                 <SelectItem value="Question Answering">Generate Q&amp;A</SelectItem>
-                <SelectItem value="Explain">Explain Topic/Question</SelectItem> 
-                <SelectItem value="Text">Abeg solve my Assignment...</SelectItem>
+                <SelectItem value="Text">Solve my Assignment</SelectItem>
+                <SelectItem value="Explain">Explain Topic/Question....</SelectItem> 
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
@@ -289,7 +286,7 @@ export function AssignmentForm() {
           
           {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat || formState?.errors?.userTextQuery) && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive">
-              <AlertCircleIcon className="h-4 w-4" />
+              <AlertCircleIconLucide className="h-4 w-4" /> {/* Ensured correct icon variable name */}
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>
                 {formState.errors.general.join(' ')}
@@ -304,5 +301,5 @@ export function AssignmentForm() {
     </Card>
   );
 }
-
     
+
