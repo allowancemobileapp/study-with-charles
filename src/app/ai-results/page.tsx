@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckCircle, AlertCircle as AlertCircleIcon, ArrowLeft } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckCircle, AlertCircle as AlertCircleIcon, ArrowLeft, Send } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
@@ -114,10 +114,11 @@ export default function AiResultsPage() {
 
         if (uniqueCombinedQaArray.length > 0) {
           const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
-          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl }); 
-        } else {
-          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl }); 
+          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl });
+        } else if (newQaText) { // Fallback to new text if combination fails or is empty
+          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl });
         }
+
 
         if (!isSubscribed) {
           setShowVideoAd(true);
@@ -141,45 +142,19 @@ export default function AiResultsPage() {
     if (lastAiInput?.desiredFormat === 'Question Answering' && isQAResult(currentDisplayResult)) {
       try {
         const parsed = JSON.parse(currentDisplayResult) as QAItem[];
-        if (forPlainTextDisplay) { // For rendering inside <pre> or similar
-           return parsed.map((qa, index) =>
+        return parsed.map((qa, index) =>
             `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
           ).join('\n\n---\n\n');
-        }
-        // For structured display (not used for now based on previous request for plain text like summary)
-        // This part would be used if we render Q&A with distinct divs again.
-        // For now, handleDownload and handleCopy will use the forPlainTextDisplay=true path.
-        return parsed.map((qa, index) =>
-            `Question ${index + 1}:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
-        ).join('\n\n---\n\n');
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
+        return currentDisplayResult; // Fallback to raw text
       }
     }
     return currentDisplayResult;
   };
 
-  const handleDownload = () => {
-    const contentToDownload = getFormattedContent(true); // Get plain text formatted Q&A
-    if (contentToDownload) {
-      const blob = new Blob([contentToDownload], { type: 'text/plain;charset=utf-8' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = 'ai_result.txt';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(link.href);
-      toast({
-        title: "Download Started",
-        description: "Your AI result is downloading.",
-        className: "bg-primary/10 border-primary",
-      });
-    }
-  };
-
   const handleCopy = async () => {
-    const contentToCopy = getFormattedContent(true); // Get plain text formatted Q&A
+    const contentToCopy = getFormattedContent(true);
     if (contentToCopy) {
       try {
         await navigator.clipboard.writeText(contentToCopy);
@@ -209,7 +184,7 @@ export default function AiResultsPage() {
       return;
     }
     if (!lastAiInput || !lastAiInput.subjectTitle) {
-      toast({ title: "Cannot Generate More", description: "Original query details not found. Please try a new query from the AI Helper page.", variant: "destructive" });
+      toast({ title: "Cannot Generate More", description: "Original query details not found. Please try a new query from the Study page.", variant: "destructive" });
       return;
     }
 
@@ -255,7 +230,6 @@ export default function AiResultsPage() {
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.error("Error parsing Q&A JSON in renderContent:", errorMessage, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
-        // Fallback to raw display if Q&A parsing fails
         return (
              <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                 {currentDisplayResult}
@@ -289,13 +263,13 @@ export default function AiResultsPage() {
           <CardHeader>
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
             <CardTitle className="text-2xl text-destructive">No Result Found</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              It seems there's no AI result to display. Please try generating one first.
+            <CardDescription className="text-muted-foreground mt-2">
+              It seems there's no study results to display. Please try generating one first.
             </CardDescription>
           </CardHeader>
           <CardFooter>
             <Button onClick={() => router.push('/')} className="w-full bg-primary text-primary-foreground">
-              Go to AI Helper
+              Go to Study
             </Button>
           </CardFooter>
         </Card>
@@ -315,7 +289,7 @@ export default function AiResultsPage() {
           <AlertDescription>
             {generateMoreFormState.errors.general.join(' ')}
              <Button onClick={() => router.push('/')} className="w-full mt-4 bg-primary text-primary-foreground">
-              Go to AI Helper
+              Go to Study
             </Button>
           </AlertDescription>
         </Alert>
@@ -342,7 +316,7 @@ export default function AiResultsPage() {
         <CardContent>
           <div className="relative w-full">
             <ScrollArea className="h-[400px] w-full rounded-md border border-border p-4 bg-secondary/30">
-              {isLoading && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult))) ?
+              {isLoading && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)) ?
                 <div className="flex flex-col items-center justify-center h-full">
                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                    <p className="text-muted-foreground">Generating more Q&A...</p>
@@ -369,7 +343,7 @@ export default function AiResultsPage() {
                 variant="outline"
                 className="flex-grow sm:flex-grow-0 border-accent text-accent hover:bg-accent/10"
               >
-                {isLoading && !currentDisplayResult ? ( 
+                {isLoading && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)) ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -381,22 +355,24 @@ export default function AiResultsPage() {
       </Card>
 
       {/* Stationary Follow-up Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/90 border-t border-border/70 shadow-lg p-3 backdrop-blur-sm z-20">
+      <div className="fixed bottom-0 left-0 right-0 bg-background/90 border-t border-border/70 shadow-2xl p-3 backdrop-blur-sm z-20">
         <div className="container mx-auto max-w-3xl flex items-center gap-2">
-          <Input 
-            type="text" 
-            placeholder="Ask a follow-up question... (UI only for now)" 
+          <Input
+            type="text"
+            placeholder="Ask a follow-up question... (UI only for now)"
             value={followUpQuestion}
             onChange={(e) => setFollowUpQuestion(e.target.value)}
             className="flex-grow focus-visible:ring-primary"
           />
-          <Button variant="ghost" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10">
+          <Button variant="outline" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10 border-primary">
             <Download className="h-5 w-5" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleSchedule} title="Schedule Result" className="text-accent hover:bg-accent/10">
+          <Button variant="outline" size="icon" onClick={handleSchedule} title="Schedule Result" className="text-accent hover:bg-accent/10 border-accent">
             <CalendarPlus className="h-5 w-5" />
           </Button>
-          {/* Add a Send button for follow-up later if needed */}
+           <Button variant="default" size="icon" title="Send follow-up (UI only)" className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Send className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </div>
