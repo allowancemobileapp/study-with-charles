@@ -147,7 +147,7 @@ export default function AiResultsPage() {
           ).join('\n\n---\n\n');
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
-        return currentDisplayResult; // Fallback to raw text
+        return currentDisplayResult; 
       }
     }
     return currentDisplayResult;
@@ -196,11 +196,37 @@ export default function AiResultsPage() {
       formData.append('userTextQuery', lastAiInput.userTextQuery);
     }
     formData.append('subjectTitle', lastAiInput.subjectTitle);
-    formData.append('desiredFormat', 'Question Answering');
+    formData.append('desiredFormat', 'Question Answering'); // Always Q&A for "generate more"
 
     startTransition(() => {
       generateMoreAction(formData);
     });
+  };
+
+  const handleDownload = () => {
+    const contentToDownload = getFormattedContent(true);
+    if (contentToDownload) {
+      const blob = new Blob([contentToDownload], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'study-result.txt';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      toast({
+        title: "Download Started",
+        description: "Your result is being downloaded.",
+        className: "bg-blue-500/10 border-blue-500",
+      });
+    } else {
+      toast({
+        title: "Download Failed",
+        description: "No content to download.",
+        variant: "destructive",
+      });
+    }
   };
 
 
@@ -230,6 +256,7 @@ export default function AiResultsPage() {
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.error("Error parsing Q&A JSON in renderContent:", errorMessage, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
+        // Fallback to plain text display if Q&A parsing fails
         return (
              <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                 {currentDisplayResult}
@@ -238,7 +265,7 @@ export default function AiResultsPage() {
       }
     }
 
-    // Fallback for non-Q&A or if Q&A parsing failed
+    // For "Summarize", "Text", "Explain", or if Q&A parsing failed
     return (
       <div>
         <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
@@ -378,5 +405,6 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
 
     
