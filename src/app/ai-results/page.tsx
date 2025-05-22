@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useActionState, useState, useTransition } from 'react';
+import Image from 'next/image';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,9 +112,9 @@ export default function AiResultsPage() {
 
         if (uniqueCombinedQaArray.length > 0) {
           const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
-          setAiResult({ result: combinedResultString });
+          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl }); // Preserve imageUrl
         } else {
-          setAiResult(generateMoreFormState.result);
+          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl }); // Preserve imageUrl
         }
 
         if (!isSubscribed) {
@@ -132,21 +133,20 @@ export default function AiResultsPage() {
   }, [generateMoreFormState]);
 
 
-  const getFormattedContent = (forDisplay?: boolean): string => {
+  const getFormattedContent = (): string => {
     if (!currentDisplayResult) return "";
-    const resultText = currentDisplayResult;
 
-    if (isQAResult(resultText)) {
+    if (lastAiInput?.desiredFormat === 'Question Answering' && isQAResult(currentDisplayResult)) {
       try {
-        const parsed = JSON.parse(resultText) as QAItem[];
-        return parsed.map((qa: QAItem) =>
-            `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
-        ).join(forDisplay ? '\n\n\n' : '\n\n---\n\n'); // More space for display
+        const parsed = JSON.parse(currentDisplayResult) as QAItem[];
+        return parsed.map((qa, index) =>
+            `Question ${index + 1}:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
+        ).join('\n\n---\n\n');
       } catch (e) {
-        console.error("getFormattedContent: Could not parse Q&A JSON. Error:", e, "Problematic JSON:", resultText.substring(0,200));
+        console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
       }
     }
-    return resultText;
+    return currentDisplayResult;
   };
 
   const handleDownload = () => {
@@ -222,15 +222,44 @@ export default function AiResultsPage() {
   const renderContent = () => {
     if (!currentDisplayResult) return <p className="text-muted-foreground">No result content to display.</p>;
 
-    let contentToRender = currentDisplayResult;
-    if (isQAResult(currentDisplayResult)) {
-        contentToRender = getFormattedContent(true); // Format Q&A for display
+    if (lastAiInput?.desiredFormat === 'Question Answering' && isQAResult(currentDisplayResult)) {
+      try {
+        const parsedResult = JSON.parse(currentDisplayResult) as QAItem[];
+        return (
+          <div>
+            {parsedResult.map((qa, index) => (
+              <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
+                <h4 className="text-lg font-semibold text-primary mb-1">Question:</h4>
+                <p className="text-foreground whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
+                <h4 className="text-lg font-semibold text-accent mt-3 mb-1">Answer:</h4>
+                <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
+              </div>
+            ))}
+            {aiResult?.imageUrl && (
+              <div className="mt-6">
+                <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
+              </div>
+            )}
+          </div>
+        );
+      } catch (e) {
+        console.error("Error parsing Q&A JSON in renderContent:", e, "\nProblematic JSON:", currentDisplayResult.substring(0, 200) + "...");
+        // Fallback to raw display if Q&A parsing fails, handled below
+      }
     }
 
+    // Fallback for non-Q&A or if Q&A parsing failed
     return (
-      <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
-        {contentToRender}
-      </pre>
+      <div>
+        <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+          {currentDisplayResult}
+        </div>
+        {aiResult?.imageUrl && (
+          <div className="mt-6">
+             <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration"/>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -317,14 +346,14 @@ export default function AiResultsPage() {
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {isQAResult(currentDisplayResult) && (
+            {lastAiInput?.desiredFormat === 'Question Answering' && (
               <Button
                 onClick={handleGenerateMore}
                 disabled={isLoading || !lastAiInput}
                 variant="outline"
                 className="flex-grow sm:flex-grow-0 border-accent text-accent hover:bg-accent/10"
               >
-                {isLoading && !currentDisplayResult ? ( // Only show loader if no current result, or if appending
+                {isLoading && !currentDisplayResult ? ( 
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -341,3 +370,6 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
+
+    
