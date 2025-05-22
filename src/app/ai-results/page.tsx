@@ -5,6 +5,7 @@ import React, { useEffect, useActionState, useState, useTransition } from 'react
 import Image from 'next/image';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckCircle, AlertCircle as AlertCircleIcon, ArrowLeft } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -41,6 +42,7 @@ export default function AiResultsPage() {
   const [isPendingTransition, startTransition] = useTransition();
 
   const [currentDisplayResult, setCurrentDisplayResult] = useState(aiResult?.result || "");
+  const [followUpQuestion, setFollowUpQuestion] = useState("");
 
   useEffect(() => {
     setCurrentDisplayResult(aiResult?.result || "");
@@ -112,9 +114,9 @@ export default function AiResultsPage() {
 
         if (uniqueCombinedQaArray.length > 0) {
           const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
-          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl }); // Preserve imageUrl
+          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl }); 
         } else {
-          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl }); // Preserve imageUrl
+          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl }); 
         }
 
         if (!isSubscribed) {
@@ -133,12 +135,20 @@ export default function AiResultsPage() {
   }, [generateMoreFormState]);
 
 
-  const getFormattedContent = (): string => {
+  const getFormattedContent = (forPlainTextDisplay = false): string => {
     if (!currentDisplayResult) return "";
 
     if (lastAiInput?.desiredFormat === 'Question Answering' && isQAResult(currentDisplayResult)) {
       try {
         const parsed = JSON.parse(currentDisplayResult) as QAItem[];
+        if (forPlainTextDisplay) { // For rendering inside <pre> or similar
+           return parsed.map((qa, index) =>
+            `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
+          ).join('\n\n---\n\n');
+        }
+        // For structured display (not used for now based on previous request for plain text like summary)
+        // This part would be used if we render Q&A with distinct divs again.
+        // For now, handleDownload and handleCopy will use the forPlainTextDisplay=true path.
         return parsed.map((qa, index) =>
             `Question ${index + 1}:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
         ).join('\n\n---\n\n');
@@ -150,7 +160,7 @@ export default function AiResultsPage() {
   };
 
   const handleDownload = () => {
-    const contentToDownload = getFormattedContent();
+    const contentToDownload = getFormattedContent(true); // Get plain text formatted Q&A
     if (contentToDownload) {
       const blob = new Blob([contentToDownload], { type: 'text/plain;charset=utf-8' });
       const link = document.createElement('a');
@@ -169,7 +179,7 @@ export default function AiResultsPage() {
   };
 
   const handleCopy = async () => {
-    const contentToCopy = getFormattedContent();
+    const contentToCopy = getFormattedContent(true); // Get plain text formatted Q&A
     if (contentToCopy) {
       try {
         await navigator.clipboard.writeText(contentToCopy);
@@ -243,8 +253,14 @@ export default function AiResultsPage() {
           </div>
         );
       } catch (e) {
-        console.error("Error parsing Q&A JSON in renderContent:", e, "\nProblematic JSON:", currentDisplayResult.substring(0, 200) + "...");
-        // Fallback to raw display if Q&A parsing fails, handled below
+        const errorMessage = e instanceof Error ? e.message : "Unknown error";
+        console.error("Error parsing Q&A JSON in renderContent:", errorMessage, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
+        // Fallback to raw display if Q&A parsing fails
+        return (
+             <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+                {currentDisplayResult}
+             </div>
+        );
       }
     }
 
@@ -266,7 +282,10 @@ export default function AiResultsPage() {
   if (!aiResult && !isGeneratingMore && !isPendingTransition) {
     return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
-        <Card className="w-full max-w-md text-center bg-card/70 border-destructive/50 shadow-lg">
+        <Button variant="outline" onClick={() => router.back()} className="absolute top-20 left-4 sm:left-8 border-primary text-primary hover:bg-primary/10 self-start">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Card className="w-full max-w-md text-center bg-card/70 border-destructive/50 shadow-lg mt-16 sm:mt-0">
           <CardHeader>
             <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
             <CardTitle className="text-2xl text-destructive">No Result Found</CardTitle>
@@ -287,7 +306,10 @@ export default function AiResultsPage() {
   if (generateMoreFormState?.errors?.general && !isGeneratingMore && !isPendingTransition) {
      return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
-        <Alert variant="destructive" className="max-w-md">
+         <Button variant="outline" onClick={() => router.back()} className="absolute top-20 left-4 sm:left-8 border-primary text-primary hover:bg-primary/10 self-start">
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Alert variant="destructive" className="max-w-md mt-16 sm:mt-0">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Error Generating More Q&amp;A</AlertTitle>
           <AlertDescription>
@@ -304,14 +326,14 @@ export default function AiResultsPage() {
   const isLoading = isGeneratingMore || isPendingTransition;
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto py-8 px-4 pb-28"> {/* Added pb-28 for stationary bar */}
        <Button variant="outline" onClick={() => router.back()} className="mb-4 border-primary text-primary hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-primary">
-            Result!
+            Study Results...
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Here's the content processed by our AI based on your request.
@@ -339,13 +361,7 @@ export default function AiResultsPage() {
             </Button>
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-between items-center pt-6 space-y-3 sm:space-y-0">
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={handleDownload} className="flex-grow sm:flex-grow-0 border-primary text-primary hover:bg-primary/10">
-              <Download className="mr-2 h-4 w-4" /> Download Result
-            </Button>
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
             {lastAiInput?.desiredFormat === 'Question Answering' && (
               <Button
                 onClick={handleGenerateMore}
@@ -361,15 +377,30 @@ export default function AiResultsPage() {
                 Generate More Q&amp;A
               </Button>
             )}
-            <Button onClick={handleSchedule} className="flex-grow sm:flex-grow-0 bg-accent text-accent-foreground hover:bg-accent/90">
-              <CalendarPlus className="mr-2 h-4 w-4" /> Schedule Result
-            </Button>
-          </div>
         </CardFooter>
       </Card>
+
+      {/* Stationary Follow-up Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background/90 border-t border-border/70 shadow-lg p-3 backdrop-blur-sm z-20">
+        <div className="container mx-auto max-w-3xl flex items-center gap-2">
+          <Input 
+            type="text" 
+            placeholder="Ask a follow-up question... (UI only for now)" 
+            value={followUpQuestion}
+            onChange={(e) => setFollowUpQuestion(e.target.value)}
+            className="flex-grow focus-visible:ring-primary"
+          />
+          <Button variant="ghost" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10">
+            <Download className="h-5 w-5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleSchedule} title="Schedule Result" className="text-accent hover:bg-accent/10">
+            <CalendarPlus className="h-5 w-5" />
+          </Button>
+          {/* Add a Send button for follow-up later if needed */}
+        </div>
+      </div>
     </div>
   );
 }
-
 
     
