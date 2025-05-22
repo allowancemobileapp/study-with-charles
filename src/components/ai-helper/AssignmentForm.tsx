@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, UploadCloud, FileText, Brain, ListChecks, Pilcrow } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ const EMOJI_LIST = ['😊', '📚', '💡', '👍', '✨', '🚀', '🧠', '🤓
 const EMOJI_INTERVAL = 2500; // 2.5 seconds
 
 export function AssignmentForm() {
-  const [formState, formAction, isFormActionPending] = useActionState(processAssignmentAction, initialState);
+  const [formState, formAction, isProcessing] = useActionState(processAssignmentAction, initialState);
   const [, startTransition] = useTransition(); 
   
   const { setAiResult, isSubscribed, setShowVideoAd, isLoggedIn, setLastAiInput } = useAppStore();
@@ -39,14 +39,12 @@ export function AssignmentForm() {
   const [userTextQuery, setUserTextQuery] = useState('');
   const [currentEmojiIndex, setCurrentEmojiIndex] = useState(0);
 
-  const isProcessing = isFormActionPending;
-
   useEffect(() => {
     const intervalId = setInterval(() => {
       setCurrentEmojiIndex((prevIndex) => (prevIndex + 1) % EMOJI_LIST.length);
     }, EMOJI_INTERVAL);
 
-    return () => clearInterval(intervalId); // Cleanup interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
 
@@ -59,7 +57,8 @@ export function AssignmentForm() {
           </>
         ) : (
           <>
-            <Brain className="mr-2 h-4 w-4" /> Get Results
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2Z"/><path d="M12 18H9.8c-1.4 0-2.8-.8-3.5-2.1L4.2 12l2-4c.7-1.3 2.1-2.2 3.6-2.2H12"/><path d="m16 9-2-2 2-2"/><path d="m14 13-2 2 2 2"/></svg>
+             Get Results
           </>
         )}
       </Button>
@@ -192,35 +191,27 @@ export function AssignmentForm() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
-              <Pilcrow className="mr-2 h-5 w-5 text-primary" /> Type Your Question/Text (Optional)
-            </Label>
+          <div className="space-y-2"> {/* Combined input area */}
             <Textarea
               id="user-text-query"
-              placeholder="e.g., Explain the theory of relativity, or paste assignment questions here..."
+              placeholder="Type your question, paste text, or describe your assignment here..."
               value={userTextQuery}
               onChange={(e) => setUserTextQuery(e.target.value)}
               className="focus-visible:ring-accent"
               rows={4}
             />
-            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive">{formState.errors.userTextQuery.join(', ')}</p>}
-          </div>
+            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive mt-1">{formState.errors.userTextQuery.join(', ')}</p>}
 
-          <div className="space-y-2">
-            <Label htmlFor="file-upload" className="text-foreground flex items-center">
-              <UploadCloud className="mr-2 h-5 w-5 text-primary" /> Or Upload File (Optional, Max 4MB)
-            </Label>
             <Input
               id="file-upload"
               ref={fileInputRef}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
               onChange={handleFileChange}
-              className="file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent"
+              className="file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/20 file:text-primary hover:file:bg-primary/30 focus-visible:ring-accent w-full"
             />
-            {selectedFile && <p className="text-sm text-muted-foreground">Selected: {selectedFile.name}</p>}
-             {formState?.errors?.fileDataUri && <p className="text-sm text-destructive">{formState.errors.fileDataUri.join(', ')}</p>}
+            {selectedFile && <p className="text-sm text-muted-foreground mt-1">Selected: {selectedFile.name}</p>}
+             {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
           </div>
 
           <div className="space-y-2">
@@ -278,7 +269,3 @@ export function AssignmentForm() {
     </Card>
   );
 }
-
-    
-
-    
