@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks, Paperclip, PencilLine, X as XIcon } from "lucide-react";
+import { AlertCircle, CheckCircle, Loader2, FileText, ListChecks, Paperclip, PencilLine, X as XIcon, Brain } from "lucide-react"; // Added Brain
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -57,8 +57,7 @@ export function AssignmentForm() {
           </>
         ) : (
           <>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2 h-4 w-4"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2Z"/><path d="M12 18H9.8c-1.4 0-2.8-.8-3.5-2.1L4.2 12l2-4c.7-1.3 2.1-2.2 3.6-2.2H12"/><path d="m16 9-2-2 2-2"/><path d="m14 13-2 2 2 2"/></svg>
-             Get Results
+            <Brain className="mr-2 h-4 w-4" /> Get Results
           </>
         )}
       </Button>
@@ -194,30 +193,30 @@ export function AssignmentForm() {
           Hi, I'm Charles. Let's study...
         </CardTitle>
         <CardDescription className="text-muted-foreground">
-          Type your question or paste text. You can also attach a file using the paperclip icon.
+          Type a question, upload schoolwork (PDF, JPG, PNG, TXT, DOCX - Max 4MB), or both!
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
           <div className="space-y-2">
             <Label htmlFor="user-text-query" className="text-foreground flex items-center">
-              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Query & Optional File
+              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question &amp; Optional File
             </Label>
             <div className="relative">
               <Textarea
                 id="user-text-query"
-                placeholder="Type your question, paste text, or describe your assignment here..."
+                placeholder="Type your question, upload/snap note or paste assignment here...."
                 value={userTextQuery}
                 onChange={(e) => setUserTextQuery(e.target.value)}
-                className="focus-visible:ring-accent pr-12 py-2" 
-                rows={5}
+                className="focus-visible:ring-accent pr-10 py-2" 
+                rows={4} // Reduced rows
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground hover:text-primary p-1"
+                className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7" // Adjusted position
                 aria-label="Attach file"
                 title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
               >
@@ -280,10 +279,10 @@ export function AssignmentForm() {
                 <SelectValue placeholder="Select format..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Text">Text Extraction / Assignment Solver</SelectItem>
                 <SelectItem value="Summary">Summary</SelectItem>
                 <SelectItem value="Question Answering">Generate Q&amp;A</SelectItem>
                 <SelectItem value="Explain">Explain Topic/Question</SelectItem> 
+                <SelectItem value="Text">Text Extraction / Assignment Solver</SelectItem>
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
@@ -306,6 +305,3 @@ export function AssignmentForm() {
     </Card>
   );
 }
-
-
-    
