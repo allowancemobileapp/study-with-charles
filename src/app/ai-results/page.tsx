@@ -11,7 +11,7 @@ import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckC
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
-import { processAssignmentAction, type AssignmentFormState } from '@/lib/actions';
+import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 interface QAItem {
@@ -23,6 +23,12 @@ const initialGenerateMoreState: AssignmentFormState = {
   message: null,
   errors: {},
   result: null,
+};
+
+const initialFollowUpState: FollowUpFormState = {
+  message: null,
+  errors: {},
+  followUpAnswer: null,
 };
 
 
@@ -39,10 +45,13 @@ export default function AiResultsPage() {
   const { toast } = useToast();
 
   const [generateMoreFormState, generateMoreAction, isGeneratingMore] = useActionState(processAssignmentAction, initialGenerateMoreState);
-  const [isPendingTransition, startTransition] = useTransition();
-
   const [currentDisplayResult, setCurrentDisplayResult] = useState(aiResult?.result || "");
   const [followUpQuestion, setFollowUpQuestion] = useState("");
+  const [previousFollowUpQuestionForDisplay, setPreviousFollowUpQuestionForDisplay] = useState("");
+
+
+  // Action state for follow-up questions
+  const [followUpState, submitFollowUpAction, isSubmittingFollowUp] = useActionState(processFollowUpAction, initialFollowUpState);
 
   useEffect(() => {
     setCurrentDisplayResult(aiResult?.result || "");
@@ -115,7 +124,7 @@ export default function AiResultsPage() {
         if (uniqueCombinedQaArray.length > 0) {
           const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
           setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl });
-        } else if (newQaText) { // Fallback to new text if combination fails or is empty
+        } else if (newQaText) { 
           setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl });
         }
 
@@ -135,6 +144,38 @@ export default function AiResultsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generateMoreFormState]);
 
+  // Effect for handling follow-up action state
+  useEffect(() => {
+    if (followUpState) {
+      if (followUpState.errors && Object.keys(followUpState.errors).length > 0) {
+        toast({
+          title: "Follow-up Error",
+          description: followUpState.message || "Could not process follow-up.",
+          variant: "destructive",
+        });
+      } else if (followUpState.followUpAnswer) {
+        toast({
+          title: "Follow-up Processed!",
+          description: "Here's the response to your follow-up.",
+          className: "bg-green-500/10 border-green-500",
+        });
+        const newResultText = `${currentDisplayResult}\n\n---\n\n**Your Question:** ${previousFollowUpQuestionForDisplay}\n\n**Answer:**\n${followUpState.followUpAnswer}`;
+        setAiResult({ result: newResultText, imageUrl: aiResult?.imageUrl });
+        setFollowUpQuestion(""); // Clear input
+        setPreviousFollowUpQuestionForDisplay("");
+         if (!isSubscribed) {
+          setShowVideoAd(true);
+        }
+      } else if (followUpState.message) {
+         toast({
+          title: "Info",
+          description: followUpState.message,
+         });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followUpState]);
+
 
   const getFormattedContent = (forPlainTextDisplay = false): string => {
     if (!currentDisplayResult) return "";
@@ -146,7 +187,7 @@ export default function AiResultsPage() {
             `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
           ).join('\n\n---\n\n');
       } catch (e) {
-        console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
+        console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e, "Problematic JSON:", currentDisplayResult.substring(0,100));
         return currentDisplayResult; 
       }
     }
@@ -178,6 +219,7 @@ export default function AiResultsPage() {
     router.push('/timetable?action=schedule_result');
   };
 
+  const [, startGenerateMoreTransition] = useTransition();
   const handleGenerateMore = () => {
     if (!isLoggedIn) {
       toast({ title: "Please Sign In", description: "You need to be signed in to generate more results.", variant: "destructive" });
@@ -198,7 +240,7 @@ export default function AiResultsPage() {
     formData.append('subjectTitle', lastAiInput.subjectTitle);
     formData.append('desiredFormat', 'Question Answering'); // Always Q&A for "generate more"
 
-    startTransition(() => {
+    startGenerateMoreTransition(() => {
       generateMoreAction(formData);
     });
   };
@@ -229,6 +271,34 @@ export default function AiResultsPage() {
     }
   };
 
+  const [, startFollowUpTransition] = useTransition();
+  const handleFollowUpSubmit = () => {
+    if (!isLoggedIn) {
+      toast({ title: "Please Sign In", description: "You need to be signed in to ask follow-up questions.", variant: "destructive" });
+      return;
+    }
+    if (!followUpQuestion.trim()) {
+      toast({ title: "Empty Question", description: "Please type your follow-up question.", variant: "destructive" });
+      return;
+    }
+    if (!currentDisplayResult || !lastAiInput || !lastAiInput.subjectTitle || !lastAiInput.desiredFormat) {
+      toast({ title: "Context Missing", description: "Cannot process follow-up without original context. Please try generating a new result first.", variant: "destructive" });
+      return;
+    }
+
+    setPreviousFollowUpQuestionForDisplay(followUpQuestion); // Store for display after AI response
+
+    const formData = new FormData();
+    formData.append('previousResultText', currentDisplayResult);
+    formData.append('followUpQuery', followUpQuestion.trim());
+    formData.append('subjectTitle', lastAiInput.subjectTitle);
+    formData.append('desiredFormat', lastAiInput.desiredFormat);
+
+    startFollowUpTransition(() => {
+        submitFollowUpAction(formData);
+    });
+  };
+
 
   const renderContent = () => {
     if (!currentDisplayResult) return <p className="text-muted-foreground">No result content to display.</p>;
@@ -256,7 +326,6 @@ export default function AiResultsPage() {
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : "Unknown error";
         console.error("Error parsing Q&A JSON in renderContent:", errorMessage, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
-        // Fallback to plain text display if Q&A parsing fails
         return (
              <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                 {currentDisplayResult}
@@ -265,7 +334,6 @@ export default function AiResultsPage() {
       }
     }
 
-    // For "Summarize", "Text", "Explain", or if Q&A parsing failed
     return (
       <div>
         <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
@@ -280,7 +348,7 @@ export default function AiResultsPage() {
     );
   };
 
-  if (!aiResult && !isGeneratingMore && !isPendingTransition) {
+  if (!aiResult && !isGeneratingMore && !isSubmittingFollowUp) {
     return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <Button variant="outline" onClick={() => router.back()} className="absolute top-20 left-4 sm:left-8 border-primary text-primary hover:bg-primary/10 self-start">
@@ -304,7 +372,14 @@ export default function AiResultsPage() {
     );
   }
 
-  if (generateMoreFormState?.errors?.general && !isGeneratingMore && !isPendingTransition) {
+  const generalActionError = 
+    (generateMoreFormState?.errors?.general && !isGeneratingMore) || 
+    (followUpState?.errors?.general && !isSubmittingFollowUp);
+
+  if (generalActionError) {
+     const errorMessage = 
+        (generateMoreFormState?.errors?.general?.join(' ')) ||
+        (followUpState?.errors?.general?.join(' ')) || "An unexpected error occurred.";
      return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
          <Button variant="outline" onClick={() => router.back()} className="absolute top-20 left-4 sm:left-8 border-primary text-primary hover:bg-primary/10 self-start">
@@ -312,9 +387,9 @@ export default function AiResultsPage() {
         </Button>
         <Alert variant="destructive" className="max-w-md mt-16 sm:mt-0">
           <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Error Generating More Q&amp;A</AlertTitle>
+          <AlertTitle>Error Processing Request</AlertTitle>
           <AlertDescription>
-            {generateMoreFormState.errors.general.join(' ')}
+            {errorMessage}
              <Button onClick={() => router.push('/')} className="w-full mt-4 bg-primary text-primary-foreground">
               Go to Study
             </Button>
@@ -324,10 +399,12 @@ export default function AiResultsPage() {
      )
   }
 
-  const isLoading = isGeneratingMore || isPendingTransition;
+  const isLoadingMore = isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null));
+  const isLoading = isLoadingMore || isSubmittingFollowUp;
+
 
   return (
-    <div className="container mx-auto py-8 px-4 pb-28"> {/* Added pb-28 for stationary bar */}
+    <div className="container mx-auto py-8 px-4 pb-28"> 
        <Button variant="outline" onClick={() => router.back()} className="mb-4 border-primary text-primary hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
@@ -343,7 +420,7 @@ export default function AiResultsPage() {
         <CardContent>
           <div className="relative w-full">
             <ScrollArea className="h-[400px] w-full rounded-md border border-border p-4 bg-secondary/30">
-              {isLoading && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)) ?
+              {isLoadingMore ?
                 <div className="flex flex-col items-center justify-center h-full">
                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                    <p className="text-muted-foreground">Generating more Q&A...</p>
@@ -366,11 +443,11 @@ export default function AiResultsPage() {
             {lastAiInput?.desiredFormat === 'Question Answering' && (
               <Button
                 onClick={handleGenerateMore}
-                disabled={isLoading || !lastAiInput}
+                disabled={isLoading}
                 variant="outline"
                 className="flex-grow sm:flex-grow-0 border-accent text-accent hover:bg-accent/10"
               >
-                {isLoading && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)) ? (
+                {isLoadingMore ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -382,29 +459,37 @@ export default function AiResultsPage() {
       </Card>
 
       {/* Stationary Follow-up Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/90 border-t border-border/70 shadow-2xl p-3 backdrop-blur-sm z-20">
-        <div className="container mx-auto max-w-3xl flex items-center gap-2">
+      <div className="fixed bottom-4 left-0 right-0 z-20 flex justify-center px-4 pointer-events-none">
+        <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input
             type="text"
-            placeholder="Ask a follow-up question... (UI only for now)"
+            placeholder="Ask a follow-up question..."
             value={followUpQuestion}
             onChange={(e) => setFollowUpQuestion(e.target.value)}
             className="flex-grow focus-visible:ring-primary"
+            disabled={isSubmittingFollowUp}
           />
-          <Button variant="outline" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10 border-primary">
+          <Button variant="outline" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp}>
             <Download className="h-5 w-5" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleSchedule} title="Schedule Result" className="text-accent hover:bg-accent/10 border-accent">
+          <Button variant="outline" size="icon" onClick={handleSchedule} title="Schedule Result" className="text-accent hover:bg-accent/10 border-accent" disabled={isSubmittingFollowUp}>
             <CalendarPlus className="h-5 w-5" />
           </Button>
-           <Button variant="default" size="icon" title="Send follow-up (UI only)" className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Send className="h-5 w-5" />
+           <Button 
+            variant="default" 
+            size="icon" 
+            title="Send follow-up" 
+            className="bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={handleFollowUpSubmit}
+            disabled={isSubmittingFollowUp || !followUpQuestion.trim()}
+            >
+            {isSubmittingFollowUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
         </div>
       </div>
     </div>
   );
 }
-
+    
 
     
