@@ -1,6 +1,6 @@
 
 "use client";
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react'; // Added useCallback
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye, Info } from "lucide-react"; 
 import { useAppStore, type DesiredFormatType } from '@/lib/store';
-import { useSearchParams, useRouter } from 'next/navigation'; // Added useRouter
+import { useSearchParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns'; 
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -37,7 +37,7 @@ interface TimetableEvent {
   date: string; 
   time: string; 
   associatedResult?: string; 
-  originalFormat?: DesiredFormatType | string | null; // Store original format
+  originalFormat?: DesiredFormatType | string | null;
   notifyByEmail?: boolean;
 }
 
@@ -47,10 +47,19 @@ interface QAItem {
 }
 
 export default function TimetablePage() {
-  const { aiResult, isLoggedIn, isSubscribed, lastAiInput } = useAppStore();
-  const { toast } = useToast();
+  return (
+    <Suspense fallback={<div>Loading timetable...</div>}>
+      <TimetableContent />
+    </Suspense>
+  );
+}
 
-  // State for the form inputs and timetable events
+function TimetableContent() {
+  const { aiResult, isLoggedIn, isSubscribed, lastAiInput, setLastAiInput } = useAppStore(); // Added setLastAiInput if needed for clearing
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [events, setEvents] = useState<TimetableEvent[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<TimetableEvent | null>(null);
@@ -63,17 +72,23 @@ export default function TimetablePage() {
   const [associatedResultText, setAssociatedResultText] = useState('');
   const [currentOriginalFormat, setCurrentOriginalFormat] = useState<DesiredFormatType | string | null | undefined>(null);
 
-  // State for the view result modal
   const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
   const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
   const [isViewResultModalOpen, setIsViewResultModalOpen] = useState(false);
-
 
    useEffect(() => {
     if (isLoggedIn) {
       const storedEvents = localStorage.getItem('timetableEvents');
       if (storedEvents) {
-        setEvents(JSON.parse(storedEvents));
+        try {
+            const parsedEvents = JSON.parse(storedEvents);
+            if (Array.isArray(parsedEvents)) {
+                 setEvents(parsedEvents.filter(event => event && typeof event.id === 'string')); // Basic validation
+            }
+        } catch (e) {
+            console.error("Failed to parse timetable events from localStorage", e);
+            localStorage.removeItem('timetableEvents'); // Clear corrupted data
+        }
       }
     } else {
       setEvents([]);
@@ -84,11 +99,14 @@ export default function TimetablePage() {
     if (isLoggedIn && events.length > 0) {
       localStorage.setItem('timetableEvents', JSON.stringify(events));
     } else if (isLoggedIn && events.length === 0) {
-      localStorage.removeItem('timetableEvents');
+      // Only remove if it exists, to avoid unnecessary writes if it was already empty/cleared
+      if (localStorage.getItem('timetableEvents')) {
+        localStorage.removeItem('timetableEvents');
+      }
     }
   }, [events, isLoggedIn]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setTitle('');
     setDescription('');
     setDate('');
@@ -98,7 +116,41 @@ export default function TimetablePage() {
     setCurrentOriginalFormat(null);
     setEditingEvent(null);
     setIsFormOpen(false);
-  };
+  }, []);
+
+
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'schedule_result' && aiResult && lastAiInput && !isFormOpen && !editingEvent) {
+      toast({
+        title: "Scheduling AI Result",
+        description: "Event details pre-filled from your AI result.",
+      });
+      
+      setTitle(lastAiInput.subjectTitle ? `Review: ${lastAiInput.subjectTitle}` : 'Scheduled AI Result');
+      setDescription(
+        `AI-generated content for subject: ${lastAiInput.subjectTitle || 'N/A'}.\nOriginal format: ${lastAiInput.desiredFormat || 'Unknown'}.`
+      );
+      setDate(format(new Date(), 'yyyy-MM-dd'));
+      setTime(format(new Date(), 'HH:mm')); 
+      setNotifyByEmail(false); 
+      setAssociatedResultText(aiResult.result || '');
+      setCurrentOriginalFormat(lastAiInput.desiredFormat || 'Unknown');
+      
+      setIsFormOpen(true);
+      setEditingEvent(null); 
+
+      // Clear the action from the URL to prevent re-triggering and remove state to prevent re-filling if user navigates back
+      router.replace('/timetable', { scroll: false });
+      // Optionally clear lastAiInput from store if it should only be used once for pre-filling
+      // useAppStore.setState({ lastAiInput: null, aiResult: null }); // Or handle more granularly
+    }
+  // Using a stable reference for router.replace is important if it were part of dependencies.
+  // searchParams itself can change, so it's a valid dependency.
+  // aiResult and lastAiInput are from store, their stability depends on store updates.
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [searchParams, aiResult, lastAiInput, router, isFormOpen, editingEvent, toast]); // Added toast as dependency based on usage
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,7 +178,7 @@ export default function TimetablePage() {
       setEvents(events.map(ev => ev.id === editingEvent.id ? newEvent : ev));
       toast({ title: "Event Updated", description: `"${newEvent.title}" has been updated.`, className: "bg-blue-500/10 border-blue-500" });
     } else {
-      setEvents([...events, newEvent].sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()));
+      setEvents(prevEvents => [...prevEvents, newEvent].sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()));
       toast({ title: "Event Added", description: `"${newEvent.title}" has been added to your timetable.`, className: "bg-green-500/10 border-green-500" });
     }
     resetForm();
@@ -169,143 +221,6 @@ export default function TimetablePage() {
     }
   };
 
-  // This is the main component that renders the UI
-  // It receives state and handlers from the parent TimetablePage component
-
-  return (
-    <Suspense fallback={<div>Loading timetable...</div>}>
-      <TimetableContent />
-    </Suspense>
-  );
-}
-
-// This component was intended to handle the search params logic
-function TimetableContent() {
-  const { aiResult, isLoggedIn, isSubscribed, lastAiInput } = useAppStore();
-  const { toast } = useToast();
-
-  const [events, setEvents] = useState<TimetableEvent[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<TimetableEvent | null>(null);
-
-  // State for the form inputs
-  const [title, setTitle] = useState('');
-
-  // Existing state and handlers below...
-  const [description, setDescription] = useState('');
-  const [date, setDate] = useState('');
-  const [time, setTime] = useState('');
-  const [notifyByEmail, setNotifyByEmail] = useState(false);
-  const [associatedResultText, setAssociatedResultText] = useState(''); 
-  const [currentOriginalFormat, setCurrentOriginalFormat] = useState<DesiredFormatType | string | null | undefined>(null);
-
-
-  const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
-  const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
-  const [isViewResultModalOpen, setIsViewResultModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      const storedEvents = localStorage.getItem('timetableEvents');
-      if (storedEvents) {
-        setEvents(JSON.parse(storedEvents));
-      }
-    } else {
-      setEvents([]); 
-    }
-  }, [isLoggedIn]);
-
-  useEffect(() => {
-    if (isLoggedIn && events.length > 0) {
-        localStorage.setItem('timetableEvents', JSON.stringify(events));
-    } else if (isLoggedIn && events.length === 0) {
-        localStorage.removeItem('timetableEvents');
-    }
-  }, [events, isLoggedIn]);
-
-
-  const resetForm = () => {
-    setTitle('');
-    setDescription('');
-    setDate('');
-    setTime('');
-    setNotifyByEmail(false);
-    setAssociatedResultText('');
-    setCurrentOriginalFormat(null);
-    setEditingEvent(null);
-    setIsFormOpen(false);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isLoggedIn) {
-      toast({ title: "Please Sign In", description: "You need to be signed in to manage your timetable.", variant: "destructive" });
-      return;
-    }
-    if (!title || !date || !time) {
-      toast({ title: "Missing Fields", description: "Title, date, and time are required.", variant: "destructive" });
-      return;
-    }
-
-    const newEvent: TimetableEvent = {
-      id: editingEvent ? editingEvent.id : crypto.randomUUID(),
-      title,
-      description,
-      date,
-      time,
-      associatedResult: associatedResultText || undefined,
-      originalFormat: currentOriginalFormat || (editingEvent ? editingEvent.originalFormat : 'Unknown'),
-      notifyByEmail: isSubscribed ? notifyByEmail : false, 
-    };
-
-    if (editingEvent) {
-      setEvents(events.map(ev => ev.id === editingEvent.id ? newEvent : ev));
-      toast({ title: "Event Updated", description: `"${newEvent.title}" has been updated.`, className: "bg-blue-500/10 border-blue-500" });
-    } else {
-      setEvents([...events, newEvent].sort((a,b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime() ));
-      toast({ title: "Event Added", description: `"${newEvent.title}" has been added to your timetable.`, className: "bg-green-500/10 border-green-500" });
-    }
-    resetForm();
-  };
-
-  const handleEdit = (event: TimetableEvent) => {
-    setEditingEvent(event);
-    setTitle(event.title);
-    setDescription(event.description);
-    setDate(event.date);
-    setTime(event.time);
-    setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
-    setAssociatedResultText(event.associatedResult || ''); 
-    setCurrentOriginalFormat(event.originalFormat || 'Unknown');
-    setIsFormOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setEvents(events.filter(ev => ev.id !== id));
-    toast({ title: "Event Deleted", description: "The event has been removed from your timetable.", variant: "destructive" });
-  };
-  
-  const todayFormatted = format(new Date(), 'yyyy-MM-dd');
-
-  const handleViewResult = (resultText: string, originalFormat?: DesiredFormatType | string | null) => {
-    setViewResultModalContent(resultText);
-    setViewResultModalOriginalFormat(originalFormat || "Unknown");
-    setIsViewResultModalOpen(true);
-  };
-
-  const isQAResultForModal = (text: string): boolean => {
-    if (!text) return false;
-    try {
-      const parsed = JSON.parse(text);
-      return Array.isArray(parsed) && parsed.length > 0 && 
-             typeof parsed[0] === 'object' && parsed[0] !== null &&
-             'Question' in parsed[0] && 'Answer' in parsed[0];
-    } catch (e) {
-      return false;
-    }
-  };
-
-
   return (
     <div className="container mx-auto py-8 px-4">
       <Card className="w-full max-w-4xl mx-auto shadow-2xl border-primary/50 bg-card/80 backdrop-blur-sm">
@@ -316,8 +231,23 @@ function TimetableContent() {
               My Timetable
             </CardTitle>
           </div>
-          <Button onClick={() => { setIsFormOpen(!isFormOpen); if(isFormOpen) resetForm(); else if (editingEvent) setEditingEvent(null); }} variant="outline" className="border-accent text-accent hover:bg-accent/10 hover:text-accent">
-            <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen ? "Close Form" : "Add New Event"}
+          <Button 
+            onClick={() => { 
+              if (isFormOpen && !editingEvent) { // If form is open for new event, reset it
+                resetForm();
+              } else if (isFormOpen && editingEvent) { // If form is open for editing, just close it
+                 setIsFormOpen(false);
+                 // Do not reset editingEvent here, allow re-opening with same edit context if desired, or let handleEdit reset it
+              }
+              else { // Form is closed, open for new event
+                resetForm(); // Reset everything for a truly new event
+                setIsFormOpen(true);
+              }
+            }} 
+            variant="outline" 
+            className="border-accent text-accent hover:bg-accent/10 hover:text-accent"
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen && !editingEvent ? "Close Form" : "Add New Event"}
           </Button>
         </CardHeader>
         <CardDescription className="px-6 pb-2 text-sm text-muted-foreground">
@@ -325,11 +255,6 @@ function TimetableContent() {
             Email notifications are a premium feature.
         </CardDescription>
 
-        {isFormOpen && (
-           <Suspense fallback={null}> {/* Suspense for client components */}
-             {/* Render SearchParamsHandler here */}
-          </Suspense>
-        )}
         {isFormOpen && (
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6 bg-secondary/30 p-6 rounded-lg border border-border">
@@ -355,7 +280,16 @@ function TimetableContent() {
               {associatedResultText && (
                  <div className="space-y-2">
                     <Label htmlFor="associated-result-preview" className="text-foreground">Associated AI Result (Preview) - Format: {currentOriginalFormat || "Unknown"}</Label>
-                    <Textarea id="associated-result-preview" value={associatedResultText.substring(0,200) + (associatedResultText.length > 200 ? "..." : "")} readOnly className="bg-muted/50 h-20" />
+                    <Textarea 
+                        id="associated-result-preview" 
+                        value={
+                            (typeof associatedResultText === 'string' && associatedResultText.length > 200) ? 
+                            associatedResultText.substring(0,200) + "..." : 
+                            (associatedResultText || "")
+                        } 
+                        readOnly 
+                        className="bg-muted/50 h-20" 
+                    />
                  </div>
               )}
               <div className="flex items-center space-x-2">
@@ -473,7 +407,10 @@ function TimetableContent() {
                   )}
                   {event.associatedResult && (
                      <CardFooter className="text-xs text-muted-foreground bg-muted/30 py-2 px-4 rounded-b-md border-t">
-                        <span className="font-semibold mr-1 text-foreground">AI Result Associated:</span> {event.associatedResult.substring(0,50)}...
+                        <span className="font-semibold mr-1 text-foreground">AI Result Associated:</span> 
+                        {typeof event.associatedResult === 'string' && event.associatedResult.length > 50 ? 
+                         event.associatedResult.substring(0,50) + "..." : 
+                         (event.associatedResult || "")}
                      </CardFooter>
                   )}
                 </Card>
@@ -503,9 +440,9 @@ function TimetableContent() {
                     <div>
                       {parsedResult.map((qa, index) => (
                         <div key={index} className="mb-8 pb-6 border-b border-border/50 last:border-b-0 last:pb-0 last:mb-0">
-                          <p className="text-lg font-semibold text-primary">Question:</p>
-                          <p className="text-foreground mb-3 whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
-                          <p className="text-lg font-semibold text-accent">Answer:</p>
+                          <p className="text-lg font-semibold text-primary mb-1">Question:</p>
+                          <p className="text-foreground whitespace-pre-wrap">{String(qa.Question ?? 'N/A')}</p>
+                          <p className="text-lg font-semibold text-accent mt-3 mb-1">Answer:</p>
                           <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
                         </div>
                       ))}
@@ -513,11 +450,10 @@ function TimetableContent() {
                   );
                 } catch (e) {
                   console.error("ViewResultModal: Error parsing Q&A JSON", e, "Problematic JSON:", viewResultModalContent.substring(0,100));
-                  return <pre className="whitespace-pre-wrap text-sm text-foreground">{viewResultModalContent}</pre>;
+                  return <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">{viewResultModalContent}</div>;
                 }
               }
-              // For 'Text', 'Summary', 'Explain', or fallback
-              return <pre className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">{viewResultModalContent}</pre>;
+              return <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">{viewResultModalContent}</div>;
             })()}
           </ScrollArea>
           <DialogFooter>
@@ -531,3 +467,6 @@ function TimetableContent() {
     </div>
   );
 }
+
+
+    
