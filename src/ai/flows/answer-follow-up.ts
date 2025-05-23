@@ -9,7 +9,6 @@
  */
 
 import {ai} from '@/ai/genkit';
-import type { PromptData } from 'genkit';
 import {z} from 'genkit';
 
 const AnswerFollowUpInputSchema = z.object({
@@ -51,7 +50,7 @@ const answerFollowUpFlow = ai.defineFlow(
         previousResultTextLength: input.previousResultText.length,
     });
 
-    const promptMessages: ({text: string})[] = [];
+    const promptMessages: ({text: string} | {media: {url: string}})[] = []; // Use a more general type
 
     promptMessages.push({ text: `You are an AI assistant helping a student with the subject: "${input.subjectTitle}".` });
     promptMessages.push({ text: `The student previously received this information from you or another AI:\n\nPREVIOUS CONTEXT:\n${input.previousResultText}\n\nEND OF PREVIOUS CONTEXT.` });
@@ -70,9 +69,8 @@ const answerFollowUpFlow = ai.defineFlow(
     try {
       console.log("AI Flow: answerFollowUpFlow - Calling ai.generate with model 'googleai/gemini-1.5-flash-latest'.");
       
-      // For follow-up, we expect a direct textual answer, so the output schema can be simpler.
       const response = await ai.generate({
-        prompt: promptMessages as PromptData[], // Casting to PromptData[]
+        prompt: promptMessages, // Genkit handles this type
         model: 'googleai/gemini-1.5-flash-latest',
         output: { schema: AnswerFollowUpOutputSchema }, 
         config: {
