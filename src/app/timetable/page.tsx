@@ -7,10 +7,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye, Info } from "lucide-react"; 
+import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye, Info } from "lucide-react";
 import { useAppStore, type DesiredFormatType } from '@/lib/store';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { format } from 'date-fns'; 
+import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import {
@@ -34,14 +34,14 @@ interface TimetableEvent {
   id: string;
   title: string;
   description: string;
-  date: string; 
-  time: string; 
-  associatedResult?: string; 
+  date: string;
+  time: string;
+  associatedResult?: string;
   originalFormat?: DesiredFormatType | string | null;
   notifyByEmail?: boolean;
 }
 
-interface QAItem { 
+interface QAItem {
   Question: string | null | undefined;
   Answer: string | null | undefined;
 }
@@ -55,7 +55,7 @@ export default function TimetablePage() {
 }
 
 function TimetableContent() {
-  const { aiResult, isLoggedIn, isSubscribed, lastAiInput, setLastAiInput } = useAppStore(); // Added setLastAiInput if needed for clearing
+  const { aiResult, isLoggedIn, isSubscribed, lastAiInput, setLastAiInput } = useAppStore();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -126,30 +126,26 @@ function TimetableContent() {
         title: "Scheduling AI Result",
         description: "Event details pre-filled from your AI result.",
       });
-      
+
       setTitle(lastAiInput.subjectTitle ? `Review: ${lastAiInput.subjectTitle}` : 'Scheduled AI Result');
       setDescription(
         `AI-generated content for subject: ${lastAiInput.subjectTitle || 'N/A'}.\nOriginal format: ${lastAiInput.desiredFormat || 'Unknown'}.`
       );
       setDate(format(new Date(), 'yyyy-MM-dd'));
-      setTime(format(new Date(), 'HH:mm')); 
-      setNotifyByEmail(false); 
+      setTime(format(new Date(), 'HH:mm'));
+      setNotifyByEmail(false);
       setAssociatedResultText(aiResult.result || '');
       setCurrentOriginalFormat(lastAiInput.desiredFormat || 'Unknown');
-      
-      setIsFormOpen(true);
-      setEditingEvent(null); 
 
-      // Clear the action from the URL to prevent re-triggering and remove state to prevent re-filling if user navigates back
+      setIsFormOpen(true);
+      setEditingEvent(null);
+
       router.replace('/timetable', { scroll: false });
       // Optionally clear lastAiInput from store if it should only be used once for pre-filling
       // useAppStore.setState({ lastAiInput: null, aiResult: null }); // Or handle more granularly
     }
-  // Using a stable reference for router.replace is important if it were part of dependencies.
-  // searchParams itself can change, so it's a valid dependency.
-  // aiResult and lastAiInput are from store, their stability depends on store updates.
-  // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [searchParams, aiResult, lastAiInput, router, isFormOpen, editingEvent, toast]); // Added toast as dependency based on usage
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, aiResult, lastAiInput, router, isFormOpen, editingEvent, toast, resetForm]);
 
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -231,27 +227,28 @@ function TimetableContent() {
               My Timetable
             </CardTitle>
           </div>
-          <Button 
-            onClick={() => { 
-              if (isFormOpen && !editingEvent) { // If form is open for new event, reset it
+          <Button
+            onClick={() => {
+              if (isFormOpen && !editingEvent) { // If form is open for new event, close it and reset
                 resetForm();
               } else if (isFormOpen && editingEvent) { // If form is open for editing, just close it
                  setIsFormOpen(false);
-                 // Do not reset editingEvent here, allow re-opening with same edit context if desired, or let handleEdit reset it
+                 // Optionally reset editingEvent if you don't want to retain its context upon simple close
+                 // setEditingEvent(null);
               }
               else { // Form is closed, open for new event
                 resetForm(); // Reset everything for a truly new event
                 setIsFormOpen(true);
               }
-            }} 
-            variant="outline" 
+            }}
+            variant="outline"
             className="border-accent text-accent hover:bg-accent/10 hover:text-accent"
           >
             <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen && !editingEvent ? "Close Form" : "Add New Event"}
           </Button>
         </CardHeader>
         <CardDescription className="px-6 pb-2 text-sm text-muted-foreground">
-            Organize your academic life. Add events, deadlines, and study sessions. 
+            Organize your academic life. Add events, deadlines, and study sessions.
             Email notifications are a premium feature.
         </CardDescription>
 
@@ -280,15 +277,15 @@ function TimetableContent() {
               {associatedResultText && (
                  <div className="space-y-2">
                     <Label htmlFor="associated-result-preview" className="text-foreground">Associated AI Result (Preview) - Format: {currentOriginalFormat || "Unknown"}</Label>
-                    <Textarea 
-                        id="associated-result-preview" 
+                    <Textarea
+                        id="associated-result-preview"
                         value={
-                            (typeof associatedResultText === 'string' && associatedResultText.length > 200) ? 
-                            associatedResultText.substring(0,200) + "..." : 
+                            (typeof associatedResultText === 'string' && associatedResultText.length > 200) ?
+                            associatedResultText.substring(0,200) + "..." :
                             (associatedResultText || "")
-                        } 
-                        readOnly 
-                        className="bg-muted/50 h-20" 
+                        }
+                        readOnly
+                        className="bg-muted/50 h-20"
                     />
                  </div>
               )}
@@ -296,7 +293,7 @@ function TimetableContent() {
                 <TooltipProvider>
                   <Tooltip delayDuration={100}>
                     <TooltipTrigger asChild>
-                      <div className={!isSubscribed ? 'cursor-not-allowed relative' : 'relative'}> 
+                      <div className={!isSubscribed ? 'cursor-not-allowed relative' : 'relative'}>
                         <Checkbox
                           id="notify-email"
                           checked={isSubscribed ? notifyByEmail : false}
@@ -323,7 +320,7 @@ function TimetableContent() {
                 </Label>
               </div>
               {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">Conceptual: Email notification would be sent for this event.</p>}
-              
+
               <div className="flex justify-end space-x-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
                 <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90">
@@ -407,9 +404,9 @@ function TimetableContent() {
                   )}
                   {event.associatedResult && (
                      <CardFooter className="text-xs text-muted-foreground bg-muted/30 py-2 px-4 rounded-b-md border-t">
-                        <span className="font-semibold mr-1 text-foreground">AI Result Associated:</span> 
-                        {typeof event.associatedResult === 'string' && event.associatedResult.length > 50 ? 
-                         event.associatedResult.substring(0,50) + "..." : 
+                        <span className="font-semibold mr-1 text-foreground">AI Result Associated:</span>
+                        {typeof event.associatedResult === 'string' && event.associatedResult.length > 50 ?
+                         event.associatedResult.substring(0,50) + "..." :
                          (event.associatedResult || "")}
                      </CardFooter>
                   )}
@@ -425,7 +422,7 @@ function TimetableContent() {
           <DialogHeader>
             <DialogTitle className="text-primary">Scheduled AI Result</DialogTitle>
             <DialogDescription>
-              Details of the AI result associated with this event. 
+              Details of the AI result associated with this event.
               {viewResultModalOriginalFormat && viewResultModalOriginalFormat !== "Unknown" && (
                 <span className="block mt-1 text-sm text-accent">Original Format: {viewResultModalOriginalFormat}</span>
               )}
@@ -467,6 +464,3 @@ function TimetableContent() {
     </div>
   );
 }
-
-
-    
