@@ -1,9 +1,9 @@
 
-import { genkit, type GenkitPlugin } from 'genkit';
+import { genkit } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
 
 let apiKeyPresent = false;
-let googleAiPluginInstance: GenkitPlugin | null = null;
+let googleAiPluginInstance: any | null = null; // Changed GenkitPlugin to any
 const initializationErrors: string[] = [];
 
 console.log('GENKIT_INIT_LOG: Starting Genkit initialization...');
@@ -37,7 +37,7 @@ if (typeof process !== 'undefined' && process.env) {
   initializationErrors.push('process.env not available during Genkit initialization.');
 }
 
-const pluginsToUse: GenkitPlugin[] = [];
+const pluginsToUse: any[] = []; // Changed GenkitPlugin[] to any[]
 if (googleAiPluginInstance) {
   pluginsToUse.push(googleAiPluginInstance);
 } else {
@@ -57,4 +57,3 @@ export const genkitSetupDetails = {
   isGoogleAIPluginActive: !!googleAiPluginInstance,
   initializationErrors: initializationErrors,
 };
-
