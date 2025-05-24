@@ -148,7 +148,6 @@ export function AssignmentForm() {
           title: "Error",
           description: errorMessages,
           variant: "destructive",
-          icon: <AlertCircleIconLucide className="text-red-500" />,
         });
       } 
       else if (formState.result && formState.result.result) {
@@ -157,7 +156,6 @@ export function AssignmentForm() {
           description: formState.message || "Processing successful!",
           variant: "default",
           className: "bg-green-500/10 border-green-500",
-          icon: <CheckCircle className="text-green-500" />,
         });
         setAiResult(formState.result);
         setLastAiInput({
@@ -195,55 +193,55 @@ export function AssignmentForm() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
-              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question & Optional File
-            </Label>
-            <div className="relative">
-              <Textarea
-                id="user-text-query"
-                placeholder="Type your question, upload/snap note or paste assignment here...."
-                value={userTextQuery}
-                onChange={(e) => setUserTextQuery(e.target.value)}
-                className="focus-visible:ring-accent pr-10 py-2" 
-                rows={4} 
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7"
-                aria-label="Attach file"
-                title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
-              >
-                <Paperclip className="h-5 w-5" />
-              </Button>
-            </div>
-            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive mt-1">{formState.errors.userTextQuery.join(', ')}</p>}
-            
-            {selectedFile && (
-              <div className="text-sm text-muted-foreground mt-2 flex items-center justify-between bg-secondary/30 p-2 rounded-md border">
-                <div className="flex items-center truncate min-w-0">
-                  <FileText className="mr-2 h-4 w-4 text-primary shrink-0" />
-                  <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-destructive hover:text-destructive/80 h-7 w-7 p-1 shrink-0 ml-2">
-                  <XIcon className="h-4 w-4" />
+            <div className="space-y-2">
+              <Label htmlFor="user-text-query" className="text-foreground flex items-center">
+                <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question & Optional File
+              </Label>
+              <div className="relative">
+                <Textarea
+                  id="user-text-query"
+                  placeholder="Type your question, upload/snap note or paste assignment here...."
+                  value={userTextQuery}
+                  onChange={(e) => setUserTextQuery(e.target.value)}
+                  className="focus-visible:ring-accent py-2 pr-10" // Adjusted padding for icon
+                  rows={4} 
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7"
+                  aria-label="Attach file"
+                  title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
+                >
+                  <Paperclip className="h-5 w-5" />
                 </Button>
               </div>
-            )}
-            {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
-            {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Click the 📎 to attach a file. Max 4MB: PDF, JPG, PNG, TXT, DOCX.</p>}
+              {formState?.errors?.userTextQuery && <p className="text-sm text-destructive mt-1">{formState.errors.userTextQuery.join(', ')}</p>}
+              
+              {selectedFile && (
+                <div className="text-sm text-muted-foreground mt-2 flex items-center justify-between bg-secondary/30 p-2 rounded-md border">
+                  <div className="flex items-center truncate min-w-0">
+                    <FileText className="mr-2 h-4 w-4 text-primary shrink-0" />
+                    <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-destructive hover:text-destructive/80 h-7 w-7 p-1 shrink-0 ml-2">
+                    <XIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+              {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
+              {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Click the 📎 to attach a file. Max 4MB: PDF, JPG, PNG, TXT, DOCX.</p>}
 
-            <Input
-              id="file-upload-hidden"
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
-              onChange={handleFileChange}
-              className="hidden"
-            />
+              <Input
+                id="file-upload-hidden"
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
+                onChange={handleFileChange}
+                className="hidden"
+              />
           </div>
 
           <div className="space-y-2">
@@ -276,8 +274,8 @@ export function AssignmentForm() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="Summary">Summarize</SelectItem>
-                <SelectItem value="Question Answering">Generate Q&amp;A</SelectItem>
-                <SelectItem value="Text">Solve my Assignment</SelectItem>
+                <SelectItem value="Question Answering">Generate Q&A</SelectItem>
+                <SelectItem value="Text">Solve my Assignment</SelectItem> 
                 <SelectItem value="Explain">Explain Topic/Question....</SelectItem> 
               </SelectContent>
             </Select>
@@ -286,7 +284,7 @@ export function AssignmentForm() {
           
           {formState?.errors?.general && ! (formState?.errors?.fileDataUri || formState?.errors?.subjectTitle || formState?.errors?.desiredFormat || formState?.errors?.userTextQuery) && (
             <Alert variant="destructive" className="bg-destructive/10 border-destructive">
-              <AlertCircleIconLucide className="h-4 w-4" /> {/* Ensured correct icon variable name */}
+              <AlertCircleIconLucide className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
               <AlertDescription>
                 {formState.errors.general.join(' ')}
@@ -303,3 +301,4 @@ export function AssignmentForm() {
 }
     
 
+    
