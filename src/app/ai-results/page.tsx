@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, CheckCircle, AlertCircle as AlertCircleIcon, ArrowLeft, Send } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send } from "lucide-react"; // CheckCircle, AlertCircleIcon removed as icons are not used in toast
 import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from "@/hooks/use-toast";
