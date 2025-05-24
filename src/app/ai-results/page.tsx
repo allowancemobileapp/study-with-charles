@@ -78,7 +78,6 @@ export default function AiResultsPage() {
           title: "Error Generating More",
           description: errorMessages,
           variant: "destructive",
-          icon: <AlertCircleIcon className="text-red-500" />,
         });
       }
       else if (generateMoreFormState.result && generateMoreFormState.result.result) {
@@ -87,7 +86,6 @@ export default function AiResultsPage() {
           description: generateMoreFormState.message || "New Q&A has been generated.",
           variant: "default",
           className: "bg-green-500/10 border-green-500",
-          icon: <CheckCircle className="text-green-500" />,
         });
 
         const newQaText = generateMoreFormState.result.result;
