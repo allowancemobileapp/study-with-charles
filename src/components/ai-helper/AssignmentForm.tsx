@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle as AlertCircleIconLucide, CheckCircle, Loader2, FileText, ListChecks, Paperclip, X as XIcon, Brain, PencilLine } from "lucide-react";
+import { AlertCircle as AlertCircleIconLucide, CheckCircle, Loader2, FileText, ListChecks, Paperclip, X as XIcon, Brain, PencilLine } from "lucide-react"; // Added PencilLine
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -203,7 +203,7 @@ export function AssignmentForm() {
                   placeholder="Type your question, upload/snap note or paste assignment here...."
                   value={userTextQuery}
                   onChange={(e) => setUserTextQuery(e.target.value)}
-                  className="focus-visible:ring-accent py-2 pr-10" // Adjusted padding for icon
+                  className="focus-visible:ring-accent py-2 pr-10" 
                   rows={4} 
                 />
                 <Button
@@ -275,8 +275,8 @@ export function AssignmentForm() {
               <SelectContent>
                 <SelectItem value="Summary">Summarize</SelectItem>
                 <SelectItem value="Question Answering">Generate Q&A</SelectItem>
+                <SelectItem value="Explain">Explain Topic/Question....</SelectItem>
                 <SelectItem value="Text">Solve my Assignment</SelectItem> 
-                <SelectItem value="Explain">Explain Topic/Question....</SelectItem> 
               </SelectContent>
             </Select>
             {formState?.errors?.desiredFormat && <p className="text-sm text-destructive">{formState.errors.desiredFormat.join(', ')}</p>}
