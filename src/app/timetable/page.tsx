@@ -1,13 +1,13 @@
 
 "use client";
-import React, { useState, useEffect, Suspense, useCallback } from 'react'; // Added useCallback
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye, Info } from "lucide-react";
+import { PlusCircle, Trash2, Edit3, CalendarClock, ListChecks, MailCheck, Eye, Info, Repeat } from "lucide-react";
 import { useAppStore, type DesiredFormatType } from '@/lib/store';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -29,6 +29,10 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+
+type RepeatFrequency = 'none' | 'daily' | 'weekly' | 'monthly';
 
 interface TimetableEvent {
   id: string;
@@ -39,6 +43,7 @@ interface TimetableEvent {
   associatedResult?: string;
   originalFormat?: DesiredFormatType | string | null;
   notifyByEmail?: boolean;
+  repeat?: RepeatFrequency;
 }
 
 interface QAItem {
@@ -55,7 +60,7 @@ export default function TimetablePage() {
 }
 
 function TimetableContent() {
-  const { aiResult, isLoggedIn, isSubscribed, lastAiInput, setLastAiInput } = useAppStore();
+  const { aiResult, isLoggedIn, isSubscribed, lastAiInput } = useAppStore();
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -71,6 +76,7 @@ function TimetableContent() {
   const [notifyByEmail, setNotifyByEmail] = useState(false);
   const [associatedResultText, setAssociatedResultText] = useState('');
   const [currentOriginalFormat, setCurrentOriginalFormat] = useState<DesiredFormatType | string | null | undefined>(null);
+  const [repeatFrequency, setRepeatFrequency] = useState<RepeatFrequency>('none');
 
   const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
   const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
@@ -83,11 +89,11 @@ function TimetableContent() {
         try {
             const parsedEvents = JSON.parse(storedEvents);
             if (Array.isArray(parsedEvents)) {
-                 setEvents(parsedEvents.filter(event => event && typeof event.id === 'string')); // Basic validation
+                 setEvents(parsedEvents.filter(event => event && typeof event.id === 'string')); 
             }
         } catch (e) {
             console.error("Failed to parse timetable events from localStorage", e);
-            localStorage.removeItem('timetableEvents'); // Clear corrupted data
+            localStorage.removeItem('timetableEvents'); 
         }
       }
     } else {
@@ -99,7 +105,6 @@ function TimetableContent() {
     if (isLoggedIn && events.length > 0) {
       localStorage.setItem('timetableEvents', JSON.stringify(events));
     } else if (isLoggedIn && events.length === 0) {
-      // Only remove if it exists, to avoid unnecessary writes if it was already empty/cleared
       if (localStorage.getItem('timetableEvents')) {
         localStorage.removeItem('timetableEvents');
       }
@@ -114,6 +119,7 @@ function TimetableContent() {
     setNotifyByEmail(false);
     setAssociatedResultText('');
     setCurrentOriginalFormat(null);
+    setRepeatFrequency('none');
     setEditingEvent(null);
     setIsFormOpen(false);
   }, []);
@@ -136,13 +142,12 @@ function TimetableContent() {
       setNotifyByEmail(false);
       setAssociatedResultText(aiResult.result || '');
       setCurrentOriginalFormat(lastAiInput.desiredFormat || 'Unknown');
+      setRepeatFrequency('none');
 
       setIsFormOpen(true);
       setEditingEvent(null);
 
       router.replace('/timetable', { scroll: false });
-      // Optionally clear lastAiInput from store if it should only be used once for pre-filling
-      // useAppStore.setState({ lastAiInput: null, aiResult: null }); // Or handle more granularly
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, aiResult, lastAiInput, router, isFormOpen, editingEvent, toast, resetForm]);
@@ -168,6 +173,7 @@ function TimetableContent() {
       associatedResult: associatedResultText || undefined,
       originalFormat: currentOriginalFormat || (editingEvent ? editingEvent.originalFormat : 'Unknown'),
       notifyByEmail: isSubscribed ? notifyByEmail : false,
+      repeat: repeatFrequency,
     };
 
     if (editingEvent) {
@@ -189,6 +195,7 @@ function TimetableContent() {
     setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
     setAssociatedResultText(event.associatedResult || '');
     setCurrentOriginalFormat(event.originalFormat || 'Unknown');
+    setRepeatFrequency(event.repeat || 'none');
     setIsFormOpen(true);
   };
 
@@ -229,15 +236,13 @@ function TimetableContent() {
           </div>
           <Button
             onClick={() => {
-              if (isFormOpen && !editingEvent) { // If form is open for new event, close it and reset
+              if (isFormOpen && !editingEvent) { 
                 resetForm();
-              } else if (isFormOpen && editingEvent) { // If form is open for editing, just close it
+              } else if (isFormOpen && editingEvent) { 
                  setIsFormOpen(false);
-                 // Optionally reset editingEvent if you don't want to retain its context upon simple close
-                 // setEditingEvent(null);
               }
-              else { // Form is closed, open for new event
-                resetForm(); // Reset everything for a truly new event
+              else { 
+                resetForm(); 
                 setIsFormOpen(true);
               }
             }}
@@ -249,7 +254,7 @@ function TimetableContent() {
         </CardHeader>
         <CardDescription className="px-6 pb-2 text-sm text-muted-foreground">
             Organize your academic life. Add events, deadlines, and study sessions.
-            Email notifications are a premium feature.
+            Email notifications and event repeating are premium features.
         </CardDescription>
 
         {isFormOpen && (
@@ -268,6 +273,35 @@ function TimetableContent() {
                 <div className="space-y-2">
                   <Label htmlFor="event-time" className="text-foreground">Time</Label>
                   <Input id="event-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="event-repeat" className="text-foreground">Repeat</Label>
+                  <Select 
+                    onValueChange={(value: RepeatFrequency) => {
+                      if (isSubscribed) {
+                        setRepeatFrequency(value);
+                      } else if (value !== 'none') {
+                        toast({ title: "Premium Feature", description: "Event repeating is a premium feature.", variant: "default" });
+                      }
+                    }} 
+                    value={isSubscribed ? repeatFrequency : 'none'}
+                    disabled={!isSubscribed && repeatFrequency !== 'none'}
+                  >
+                    <SelectTrigger id="event-repeat" className={!isSubscribed ? 'opacity-70 cursor-not-allowed' : ''}>
+                      <SelectValue placeholder="Select repeat frequency..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                      <SelectItem value="monthly">Monthly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                   {!isSubscribed && (
+                    <p className="text-xs text-muted-foreground">
+                      Repeating events is a <Link href="/pricing" className="underline text-primary font-semibold">premium feature</Link>.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
@@ -316,10 +350,12 @@ function TimetableContent() {
                   </Tooltip>
                 </TooltipProvider>
                 <Label htmlFor="notify-email" className={`text-sm font-medium leading-none ${!isSubscribed ? 'opacity-50 cursor-not-allowed' : ''} text-foreground`}>
-                  Notify by Email <span className="text-xs text-muted-foreground">(Premium)</span>
+                  Notify by Email <span className="text-xs text-muted-foreground">(Premium - Conceptual)</span>
                 </Label>
               </div>
               {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">Conceptual: Email notification would be sent for this event.</p>}
+              {isSubscribed && repeatFrequency !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatFrequency}. Actual repeat instances not shown.</p>}
+
 
               <div className="flex justify-end space-x-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
@@ -353,6 +389,11 @@ function TimetableContent() {
                        {event.originalFormat && event.originalFormat !== "Unknown" && (
                         <p className="text-xs text-accent flex items-center mt-1">
                           <Info size={12} className="mr-1" /> AI Result Format: {event.originalFormat}
+                        </p>
+                      )}
+                       {event.repeat && event.repeat !== 'none' && (
+                        <p className="text-xs text-purple-400 flex items-center mt-1">
+                          <Repeat size={12} className="mr-1" /> Repeats: {event.repeat.charAt(0).toUpperCase() + event.repeat.slice(1)}
                         </p>
                       )}
                     </div>
@@ -464,3 +505,4 @@ function TimetableContent() {
     </div>
   );
 }
+

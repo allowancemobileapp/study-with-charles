@@ -1,16 +1,14 @@
 
 "use client";
 
-import React, { useEffect, useActionState, useState, useTransition } from 'react';
+import React, { useEffect, useActionState, useState, useTransition, useRef } from 'react';
 import Image from 'next/image';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText } from "lucide-react";
 import { useRouter } from 'next/navigation';
-// ScrollArea is no longer needed for the main result display
-// import { ScrollArea } from '@/components/ui/scroll-area'; 
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -30,6 +28,7 @@ const initialFollowUpState: FollowUpFormState = {
   message: null,
   errors: {},
   followUpAnswer: null,
+  followUpImageUrl: null,
 };
 
 
@@ -49,6 +48,10 @@ export default function AiResultsPage() {
   const [currentDisplayResult, setCurrentDisplayResult] = useState(aiResult?.result || "");
   const [followUpQuestion, setFollowUpQuestion] = useState("");
   const [previousFollowUpQuestionForDisplay, setPreviousFollowUpQuestionForDisplay] = useState("");
+
+  const [followUpFileDataUri, setFollowUpFileDataUri] = useState<string | null>(null);
+  const [selectedFollowUpFile, setSelectedFollowUpFile] = useState<File | null>(null);
+  const followUpFileInputRef = useRef<HTMLInputElement>(null);
 
 
   // Action state for follow-up questions
@@ -159,9 +162,11 @@ export default function AiResultsPage() {
           className: "bg-green-500/10 border-green-500",
         });
         const newResultText = `${currentDisplayResult}\n\n---\n\n**Your Question:** ${previousFollowUpQuestionForDisplay}\n\n**Answer:**\n${followUpState.followUpAnswer}`;
-        setAiResult({ result: newResultText, imageUrl: aiResult?.imageUrl }); // Assuming follow-up doesn't generate new images for now
-        setFollowUpQuestion(""); // Clear input
+        setAiResult({ result: newResultText, imageUrl: followUpState.followUpImageUrl || aiResult?.imageUrl }); 
+        setFollowUpQuestion(""); 
         setPreviousFollowUpQuestionForDisplay("");
+        setSelectedFollowUpFile(null); // Clear selected file for follow-up
+        setFollowUpFileDataUri(null);
          if (!isSubscribed) {
           setShowVideoAd(true);
         }
@@ -187,7 +192,6 @@ export default function AiResultsPage() {
           ).join('\n\n---\n\n');
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
-        // Fallback to raw text if parsing Q&A fails, but log the problematic JSON
         if (typeof e === 'object' && e !== null && 'message' in e) {
             console.error("Problematic JSON (first 100 chars):", currentDisplayResult.substring(0,100) + (currentDisplayResult.length > 100 ? "..." : ""));
         }
@@ -241,7 +245,7 @@ export default function AiResultsPage() {
       formData.append('userTextQuery', lastAiInput.userTextQuery);
     }
     formData.append('subjectTitle', lastAiInput.subjectTitle);
-    formData.append('desiredFormat', 'Question Answering'); // Always Q&A for "generate more"
+    formData.append('desiredFormat', 'Question Answering'); 
 
     startGenerateMoreTransition(() => {
       generateMoreAction(formData);
@@ -274,14 +278,49 @@ export default function AiResultsPage() {
     }
   };
 
+  const handleFollowUpFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 4 * 1024 * 1024) { // 4MB limit
+        toast({
+          title: "File Too Large",
+          description: "Please upload a file smaller than 4MB for follow-up.",
+          variant: "destructive",
+        });
+        setSelectedFollowUpFile(null);
+        setFollowUpFileDataUri(null);
+        if(followUpFileInputRef.current) followUpFileInputRef.current.value = ""; 
+        return;
+      }
+      setSelectedFollowUpFile(file);
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        setFollowUpFileDataUri(loadEvent.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setSelectedFollowUpFile(null);
+      setFollowUpFileDataUri(null);
+    }
+  };
+
+  const handleRemoveFollowUpFile = () => {
+    setSelectedFollowUpFile(null);
+    setFollowUpFileDataUri(null);
+    if (followUpFileInputRef.current) {
+      followUpFileInputRef.current.value = "";
+    }
+  };
+
+
   const [, startFollowUpTransition] = useTransition();
   const handleFollowUpSubmit = () => {
     if (!isLoggedIn) {
       toast({ title: "Please Sign In", description: "You need to be signed in to ask follow-up questions.", variant: "destructive" });
       return;
     }
-    if (!followUpQuestion.trim()) {
-      toast({ title: "Empty Question", description: "Please type your follow-up question.", variant: "destructive" });
+    if (!followUpQuestion.trim() && !followUpFileDataUri) {
+      toast({ title: "Empty Input", description: "Please type a follow-up question or attach a file.", variant: "destructive" });
       return;
     }
     if (!currentDisplayResult || !lastAiInput || !lastAiInput.subjectTitle || !lastAiInput.desiredFormat) {
@@ -296,6 +335,10 @@ export default function AiResultsPage() {
     formData.append('followUpQuery', followUpQuestion.trim());
     formData.append('subjectTitle', lastAiInput.subjectTitle);
     formData.append('desiredFormat', lastAiInput.desiredFormat);
+    if (followUpFileDataUri) {
+      formData.append('fileDataUri', followUpFileDataUri);
+    }
+
 
     startFollowUpTransition(() => {
         submitFollowUpAction(formData);
@@ -323,7 +366,6 @@ export default function AiResultsPage() {
         );
       } catch (e) {
         console.error("Error parsing Q&A JSON in renderContent:", e, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
-        // Fallback to plain text display if parsing fails
         return (
              <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                 {currentDisplayResult}
@@ -331,7 +373,6 @@ export default function AiResultsPage() {
         );
       }
     }
-    // For "Summarize", "Text", "Explain" and other non-Q&A formats
     return (
       <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
         {currentDisplayResult}
@@ -395,23 +436,35 @@ export default function AiResultsPage() {
 
 
   return (
-    <div className="container mx-auto py-8 px-4 pb-28"> 
+    <div className="container mx-auto py-8 px-4 pb-36"> {/* Increased bottom padding for the fixed bar */}
        <Button variant="outline" onClick={() => router.back()} className="mb-4 border-primary text-primary hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-      <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-3xl font-bold text-primary">
-            Study Results...
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Here's the content processed by our AI based on your request.
-          </CardDescription>
+      <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm relative"> {/* Added relative for copy button positioning */}
+        <CardHeader className="flex flex-row justify-between items-start">
+          <div>
+            <CardTitle className="text-3xl font-bold text-primary">
+              Study Results...
+            </CardTitle>
+            <CardDescription className="text-muted-foreground">
+              Here's the content processed by our AI based on your request.
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleCopy}
+            className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
+            aria-label="Copy result"
+            title="Copy result"
+          >
+            <Copy className="h-5 w-5" />
+          </Button>
         </CardHeader>
-        <CardContent className="relative"> {/* Added relative for copy button positioning */}
-            <div className="p-4 rounded-md"> {/* Wrapper for padding, replacing ScrollArea's padding */}
+        <CardContent> 
+            <div className="p-4 rounded-md"> 
                 {isLoadingMore ? (
-                    <div className="flex flex-col items-center justify-center min-h-[200px]"> {/* Ensure loader is visible */}
+                    <div className="flex flex-col items-center justify-center min-h-[200px]"> 
                         <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                         <p className="text-muted-foreground">Generating more Q&A...</p>
                     </div>
@@ -424,16 +477,6 @@ export default function AiResultsPage() {
                     </div>
                 )}
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleCopy}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-primary p-1 h-8 w-8 z-10" // Adjusted positioning
-              aria-label="Copy result"
-              title="Copy result"
-            >
-              <Copy className="h-5 w-5" />
-            </Button>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
             {lastAiInput?.desiredFormat === 'Question Answering' && (
@@ -459,12 +502,25 @@ export default function AiResultsPage() {
         <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input
             type="text"
-            placeholder="Ask a follow-up question..."
+            placeholder="Ask a follow-up question or attach a file..."
             value={followUpQuestion}
             onChange={(e) => setFollowUpQuestion(e.target.value)}
             className="flex-grow focus-visible:ring-primary"
             disabled={isSubmittingFollowUp}
+            onKeyDown={(e) => e.key === 'Enter' && !isSubmittingFollowUp && (followUpQuestion.trim() || followUpFileDataUri) && handleFollowUpSubmit()}
           />
+           <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => followUpFileInputRef.current?.click()}
+            className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
+            aria-label="Attach file for follow-up"
+            title="Attach file for follow-up (Max 4MB)"
+            disabled={isSubmittingFollowUp}
+          >
+            <Paperclip className="h-5 w-5" />
+          </Button>
           <Button variant="outline" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp}>
             <Download className="h-5 w-5" />
           </Button>
@@ -477,15 +533,31 @@ export default function AiResultsPage() {
             title="Send follow-up" 
             className="bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={handleFollowUpSubmit}
-            disabled={isSubmittingFollowUp || !followUpQuestion.trim()}
+            disabled={isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)}
             >
             {isSubmittingFollowUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
         </div>
       </div>
+       {/* Hidden file input for follow-up */}
+      <input
+        id="follow-up-file-upload-hidden"
+        ref={followUpFileInputRef}
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
+        onChange={handleFollowUpFileChange}
+        className="hidden"
+      />
+      {selectedFollowUpFile && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 bg-secondary/90 text-sm text-muted-foreground p-2 rounded-md border shadow-md flex items-center gap-2 max-w-xs pointer-events-auto">
+          <FileText className="mr-1 h-4 w-4 text-primary shrink-0" />
+          <span className="truncate" title={selectedFollowUpFile.name}>{selectedFollowUpFile.name}</span>
+          <Button variant="ghost" size="icon" onClick={handleRemoveFollowUpFile} className="text-destructive hover:text-destructive/80 h-6 w-6 p-1 shrink-0 ml-1">
+            <XIcon className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
-    
-
     

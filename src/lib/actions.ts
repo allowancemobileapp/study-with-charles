@@ -30,7 +30,7 @@ export type AssignmentFormState = {
     subjectTitle?: string[];
     desiredFormat?: string[];
     userTextQuery?: string[];
-    general?: string[];
+    general?: string[]; // For errors not specific to a field
   };
 };
 
@@ -41,7 +41,7 @@ export async function processAssignmentAction(
   console.log("Server Action: processAssignmentAction initiated.");
 
   const rawFormDataEntries = Object.fromEntries(formData.entries());
-  console.log("Server Action: Raw form data entries received for processAssignmentAction:", JSON.stringify(rawFormDataEntries, (key, value) => {
+  console.log("Server Action: Raw form data entries received for processAssignmentAction (form data object):", JSON.stringify(rawFormDataEntries, (key, value) => {
     if (key === 'fileDataUri' && typeof value === 'string' && value.length > 100) {
       return `${value.substring(0, 100)}... [truncated]`;
     }
@@ -49,10 +49,10 @@ export async function processAssignmentAction(
   }));
 
   const rawFormData = {
-    fileDataUri: formData.get("fileDataUri")?.toString() || undefined,
+    fileDataUri: formData.get("fileDataUri")?.toString() || undefined, // Ensure undefined if empty
     subjectTitle: formData.get("subjectTitle")?.toString(),
     desiredFormat: formData.get("desiredFormat")?.toString(),
-    userTextQuery: formData.get("userTextQuery")?.toString() || undefined,
+    userTextQuery: formData.get("userTextQuery")?.toString() || undefined, // Ensure undefined if empty
   };
 
   console.log("Server Action: Parsed form data for validation (processAssignmentAction):", {
@@ -81,10 +81,10 @@ export async function processAssignmentAction(
     console.log("Server Action: Validation successful. Input to AI flow (processAssignmentAction):", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri?.length, userTextQueryPresent: !!userTextQuery });
 
     const aiInput: SummarizeContentInput = {
-      fileDataUri: fileDataUri || undefined,
+      fileDataUri: fileDataUri || undefined, // Pass undefined if not present
       subjectTitle,
       desiredFormat: desiredFormat as 'Text' | 'Summary' | 'Question Answering' | 'Explain', 
-      userTextQuery: userTextQuery || undefined,
+      userTextQuery: userTextQuery || undefined, // Pass undefined if not present
     };
 
     console.log("Server Action: Calling AI flow summarizeContent with input:", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
@@ -101,13 +101,13 @@ export async function processAssignmentAction(
     const successState: AssignmentFormState = {
       result: resultFromFlow,
       message: "Processing successful! Here are your results.",
-      errors: {},
+      errors: {}, // Ensure errors is an empty object on success
     };
     console.log("Server Action: Returning success state (processAssignmentAction). Message:", successState.message, "Result length:", successState.result?.result.length);
     return successState;
 
   } catch (error: unknown) {
-    let userFriendlyMessage = "An error occurred while processing your request. Please try again.";
+    let userFriendlyMessage = "AI processing failed. Please check your input or try again later.";
     
     console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.");
     if (error instanceof Error) {
@@ -122,7 +122,7 @@ export async function processAssignmentAction(
         } else if (error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("authentication")) {
             userFriendlyMessage = "There's an issue with accessing the AI service. Please try again later.";
         } else {
-             userFriendlyMessage = "AI Processing Error. Please try again later.";
+             userFriendlyMessage = `AI Processing Error: ${error.message}`;
         }
     } else {
         console.error("Unknown error type caught in server action:", error);
@@ -142,19 +142,31 @@ export async function processAssignmentAction(
 // Schema for follow-up action
 const FollowUpFormSchema = z.object({
   previousResultText: z.string().min(1, "Previous result text is required."),
-  followUpQuery: z.string().min(1, "Follow-up question is required."),
+  followUpQuery: z.string().optional(),
   subjectTitle: z.string().min(1, "Original subject title is required."),
   desiredFormat: z.enum(['Text', 'Summary', 'Question Answering', 'Explain']).describe("Original desired format to guide follow-up style."),
+  fileDataUri: z.string().refine(val => val.startsWith('data:'), {
+    message: "File data must be a valid data URI for follow-up.",
+  }).optional(),
+}).refine(data => {
+    const hasFileData = data.fileDataUri && data.fileDataUri.startsWith('data:');
+    const hasTextQuery = data.followUpQuery && data.followUpQuery.trim().length > 0;
+    return hasFileData || hasTextQuery;
+  }, {
+  message: "Please provide either a follow-up question or attach a file.",
+  path: ["general"], 
 });
 
 export type FollowUpFormState = {
   message?: string | null;
   followUpAnswer?: string | null;
+  followUpImageUrl?: string | null; // To handle potential images in follow-up
   errors?: {
     previousResultText?: string[];
     followUpQuery?: string[];
     subjectTitle?: string[];
     desiredFormat?: string[];
+    fileDataUri?: string[];
     general?: string[];
   };
 };
@@ -166,15 +178,17 @@ export async function processFollowUpAction(
   console.log("Server Action: processFollowUpAction initiated.");
   const rawFormData = {
     previousResultText: formData.get("previousResultText")?.toString(),
-    followUpQuery: formData.get("followUpQuery")?.toString(),
+    followUpQuery: formData.get("followUpQuery")?.toString() || undefined,
     subjectTitle: formData.get("subjectTitle")?.toString(),
     desiredFormat: formData.get("desiredFormat")?.toString(),
+    fileDataUri: formData.get("fileDataUri")?.toString() || undefined,
   };
   console.log("Server Action: Raw form data for processFollowUpAction (preview):", {
       followUpQueryLength: rawFormData.followUpQuery?.length,
       subjectTitle: rawFormData.subjectTitle,
       desiredFormat: rawFormData.desiredFormat,
-      previousResultTextLength: rawFormData.previousResultText?.length
+      previousResultTextLength: rawFormData.previousResultText?.length,
+      fileDataUriLength: rawFormData.fileDataUri?.length || 0,
   });
 
   try {
@@ -184,21 +198,22 @@ export async function processFollowUpAction(
       console.error("Server Action: Validation failed (processFollowUpAction).", validationErrors);
       return {
         errors: validationErrors,
-        message: "Invalid follow-up input. Please check your question.",
+        message: "Invalid follow-up input. Please check your question or file.",
         followUpAnswer: null,
       };
     }
 
-    const { previousResultText, followUpQuery, subjectTitle, desiredFormat } = validatedFields.data;
+    const { previousResultText, followUpQuery, subjectTitle, desiredFormat, fileDataUri } = validatedFields.data;
     
     const aiInput: AnswerFollowUpInput = {
       previousResultText,
-      followUpQuery,
+      followUpQuery: followUpQuery || undefined,
       subjectTitle,
       desiredFormat: desiredFormat as 'Text' | 'Summary' | 'Question Answering' | 'Explain',
+      fileDataUri: fileDataUri || undefined,
     };
 
-    console.log("Server Action: Calling AI flow answerFollowUp...");
+    console.log("Server Action: Calling AI flow answerFollowUp with input:", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
     const resultFromFlow: AnswerFollowUpOutput = await answerFollowUp(aiInput);
 
     if (!resultFromFlow || typeof resultFromFlow.followUpAnswer !== 'string') {
@@ -206,10 +221,11 @@ export async function processFollowUpAction(
       throw new Error('AI model did not return a valid follow-up answer.');
     }
     
-    console.log("Server Action: AI flow (answerFollowUp) completed. Answer length:", resultFromFlow.followUpAnswer.length);
+    console.log("Server Action: AI flow (answerFollowUp) completed. Answer length:", resultFromFlow.followUpAnswer.length, "ImageUrl present:", !!resultFromFlow.followUpImageUrl);
     return {
       message: "Follow-up processed successfully!",
       followUpAnswer: resultFromFlow.followUpAnswer,
+      followUpImageUrl: resultFromFlow.followUpImageUrl,
       errors: {},
     };
 
@@ -220,7 +236,7 @@ export async function processFollowUpAction(
         if (error.message.includes("AI model did not return a valid")) {
             userFriendlyMessage = "The AI returned an unexpected response to your follow-up. Please try rephrasing.";
         } else {
-            userFriendlyMessage = "An error occurred with the AI follow-up. Please try again later.";
+            userFriendlyMessage = `Follow-up Error: ${error.message}`;
         }
     } else {
         console.error("CRITICAL ERROR in processFollowUpAction (server): Caught an unknown error type.", error);
