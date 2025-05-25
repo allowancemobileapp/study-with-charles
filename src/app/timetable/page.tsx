@@ -31,8 +31,15 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+type DayOfWeek = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
+const daysOfWeek: DayOfWeek[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-type RepeatFrequency = 'none' | 'daily' | 'weekly' | 'monthly';
+type RepeatType = 'none' | 'daily' | 'weekly';
+
+interface RepeatSetting {
+  type: RepeatType;
+  days?: DayOfWeek[]; // Only for 'weekly'
+}
 
 interface TimetableEvent {
   id: string;
@@ -43,7 +50,7 @@ interface TimetableEvent {
   associatedResult?: string;
   originalFormat?: DesiredFormatType | string | null;
   notifyByEmail?: boolean;
-  repeat?: RepeatFrequency;
+  repeat?: RepeatSetting;
 }
 
 interface QAItem {
@@ -53,7 +60,7 @@ interface QAItem {
 
 export default function TimetablePage() {
   return (
-    <Suspense fallback={<div>Loading timetable...</div>}>
+    <Suspense fallback={<div className="container mx-auto py-8 px-4 text-center">Loading timetable...</div>}>
       <TimetableContent />
     </Suspense>
   );
@@ -76,7 +83,9 @@ function TimetableContent() {
   const [notifyByEmail, setNotifyByEmail] = useState(false);
   const [associatedResultText, setAssociatedResultText] = useState('');
   const [currentOriginalFormat, setCurrentOriginalFormat] = useState<DesiredFormatType | string | null | undefined>(null);
-  const [repeatFrequency, setRepeatFrequency] = useState<RepeatFrequency>('none');
+  
+  const [repeatType, setRepeatType] = useState<RepeatType>('none');
+  const [selectedWeeklyDays, setSelectedWeeklyDays] = useState<DayOfWeek[]>([]);
 
   const [viewResultModalContent, setViewResultModalContent] = useState<string | null>(null);
   const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
@@ -87,7 +96,7 @@ function TimetableContent() {
       const storedEvents = localStorage.getItem('timetableEvents');
       if (storedEvents) {
         try {
-            const parsedEvents = JSON.parse(storedEvents);
+            const parsedEvents = JSON.parse(storedEvents) as TimetableEvent[];
             if (Array.isArray(parsedEvents)) {
                  setEvents(parsedEvents.filter(event => event && typeof event.id === 'string')); 
             }
@@ -119,7 +128,8 @@ function TimetableContent() {
     setNotifyByEmail(false);
     setAssociatedResultText('');
     setCurrentOriginalFormat(null);
-    setRepeatFrequency('none');
+    setRepeatType('none');
+    setSelectedWeeklyDays([]);
     setEditingEvent(null);
     setIsFormOpen(false);
   }, []);
@@ -142,7 +152,8 @@ function TimetableContent() {
       setNotifyByEmail(false);
       setAssociatedResultText(aiResult.result || '');
       setCurrentOriginalFormat(lastAiInput.desiredFormat || 'Unknown');
-      setRepeatFrequency('none');
+      setRepeatType('none');
+      setSelectedWeeklyDays([]);
 
       setIsFormOpen(true);
       setEditingEvent(null);
@@ -163,6 +174,24 @@ function TimetableContent() {
       toast({ title: "Missing Fields", description: "Title, date, and time are required.", variant: "destructive" });
       return;
     }
+    if (isSubscribed && repeatType === 'weekly' && selectedWeeklyDays.length === 0) {
+        toast({ title: "Missing Days", description: "Please select at least one day for weekly repeat.", variant: "destructive" });
+        return;
+    }
+
+    let eventRepeatSetting: RepeatSetting | undefined;
+    if (isSubscribed) {
+        if (repeatType === 'daily') {
+            eventRepeatSetting = { type: 'daily' };
+        } else if (repeatType === 'weekly' && selectedWeeklyDays.length > 0) {
+            eventRepeatSetting = { type: 'weekly', days: selectedWeeklyDays };
+        } else {
+            eventRepeatSetting = { type: 'none' };
+        }
+    } else {
+        eventRepeatSetting = { type: 'none' };
+    }
+
 
     const newEvent: TimetableEvent = {
       id: editingEvent ? editingEvent.id : crypto.randomUUID(),
@@ -173,7 +202,7 @@ function TimetableContent() {
       associatedResult: associatedResultText || undefined,
       originalFormat: currentOriginalFormat || (editingEvent ? editingEvent.originalFormat : 'Unknown'),
       notifyByEmail: isSubscribed ? notifyByEmail : false,
-      repeat: repeatFrequency,
+      repeat: eventRepeatSetting,
     };
 
     if (editingEvent) {
@@ -195,7 +224,8 @@ function TimetableContent() {
     setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
     setAssociatedResultText(event.associatedResult || '');
     setCurrentOriginalFormat(event.originalFormat || 'Unknown');
-    setRepeatFrequency(event.repeat || 'none');
+    setRepeatType(event.repeat?.type || 'none');
+    setSelectedWeeklyDays(event.repeat?.type === 'weekly' ? event.repeat.days || [] : []);
     setIsFormOpen(true);
   };
 
@@ -223,6 +253,22 @@ function TimetableContent() {
       return false;
     }
   };
+  
+  const handleWeeklyDayChange = (day: DayOfWeek, checked: boolean) => {
+    setSelectedWeeklyDays(prev => 
+        checked ? [...prev, day] : prev.filter(d => d !== day)
+    );
+  };
+
+  const formatRepeatDisplay = (repeat?: RepeatSetting): string => {
+    if (!repeat || repeat.type === 'none') return '';
+    if (repeat.type === 'daily') return 'Repeats: Daily';
+    if (repeat.type === 'weekly' && repeat.days && repeat.days.length > 0) {
+        return `Repeats: Weekly on ${repeat.days.join(', ')}`;
+    }
+    return '';
+  };
+
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -239,7 +285,7 @@ function TimetableContent() {
               if (isFormOpen && !editingEvent) { 
                 resetForm();
               } else if (isFormOpen && editingEvent) { 
-                 setIsFormOpen(false);
+                 setIsFormOpen(false); // Keep form open but allow closing if editing
               }
               else { 
                 resetForm(); 
@@ -274,36 +320,56 @@ function TimetableContent() {
                   <Label htmlFor="event-time" className="text-foreground">Time</Label>
                   <Input id="event-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
                 </div>
+                
                 <div className="space-y-2">
-                  <Label htmlFor="event-repeat" className="text-foreground">Repeat</Label>
-                  <Select 
-                    onValueChange={(value: RepeatFrequency) => {
+                  <Label htmlFor="event-repeat-type" className="text-foreground">Repeat</Label>
+                  <Select
+                    value={isSubscribed ? repeatType : 'none'}
+                    onValueChange={(value: RepeatType) => {
                       if (isSubscribed) {
-                        setRepeatFrequency(value);
+                        setRepeatType(value);
+                        if (value !== 'weekly') setSelectedWeeklyDays([]);
                       } else if (value !== 'none') {
-                        toast({ title: "Premium Feature", description: "Event repeating is a premium feature.", variant: "default" });
+                        toast({ title: "Premium Feature", description: "Event repeating is a premium feature. Please subscribe to use this.", variant: "default" });
                       }
-                    }} 
-                    value={isSubscribed ? repeatFrequency : 'none'}
-                    disabled={!isSubscribed && repeatFrequency !== 'none'}
+                    }}
+                    disabled={!isSubscribed}
                   >
-                    <SelectTrigger id="event-repeat" className={!isSubscribed ? 'opacity-70 cursor-not-allowed' : ''}>
-                      <SelectValue placeholder="Select repeat frequency..." />
+                    <SelectTrigger id="event-repeat-type" className={!isSubscribed ? 'opacity-70 cursor-not-allowed' : ''}>
+                      <SelectValue placeholder="Select repeat type..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
+                      <SelectItem value="none">Does not repeat</SelectItem>
                       <SelectItem value="daily">Daily</SelectItem>
                       <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
                     </SelectContent>
                   </Select>
-                   {!isSubscribed && (
+                  {!isSubscribed && (
                     <p className="text-xs text-muted-foreground">
                       Repeating events is a <Link href="/pricing" className="underline text-primary font-semibold">premium feature</Link>.
                     </p>
                   )}
                 </div>
               </div>
+
+              {isSubscribed && repeatType === 'weekly' && (
+                <div className="space-y-3 pt-2">
+                  <Label className="text-foreground">Repeat on (Weekly)</Label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
+                    {daysOfWeek.map(day => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`repeat-day-${day}`}
+                          checked={selectedWeeklyDays.includes(day)}
+                          onCheckedChange={(checked) => handleWeeklyDayChange(day, checked as boolean)}
+                        />
+                        <Label htmlFor={`repeat-day-${day}`} className="text-sm font-normal text-foreground">{day}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="event-description" className="text-foreground">Description (Optional)</Label>
                 <Textarea id="event-description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g., Chapter 5 review, meet study group" />
@@ -354,7 +420,7 @@ function TimetableContent() {
                 </Label>
               </div>
               {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">Conceptual: Email notification would be sent for this event.</p>}
-              {isSubscribed && repeatFrequency !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatFrequency}. Actual repeat instances not shown.</p>}
+              {isSubscribed && repeatType !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatType}{repeatType === 'weekly' && selectedWeeklyDays.length > 0 ? ` on ${selectedWeeklyDays.join(', ')}` : ''}. Actual repeat instances not shown.</p>}
 
 
               <div className="flex justify-end space-x-3">
@@ -391,9 +457,9 @@ function TimetableContent() {
                           <Info size={12} className="mr-1" /> AI Result Format: {event.originalFormat}
                         </p>
                       )}
-                       {event.repeat && event.repeat !== 'none' && (
+                       {event.repeat && event.repeat.type !== 'none' && (
                         <p className="text-xs text-purple-400 flex items-center mt-1">
-                          <Repeat size={12} className="mr-1" /> Repeats: {event.repeat.charAt(0).toUpperCase() + event.repeat.slice(1)}
+                          <Repeat size={12} className="mr-1" /> {formatRepeatDisplay(event.repeat)}
                         </p>
                       )}
                     </div>
@@ -506,3 +572,4 @@ function TimetableContent() {
   );
 }
 
+    
