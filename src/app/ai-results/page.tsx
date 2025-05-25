@@ -7,9 +7,10 @@ import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send } from "lucide-react"; // CheckCircle, AlertCircleIcon removed as icons are not used in toast
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send } from "lucide-react";
 import { useRouter } from 'next/navigation';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// ScrollArea is no longer needed for the main result display
+// import { ScrollArea } from '@/components/ui/scroll-area'; 
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -121,9 +122,9 @@ export default function AiResultsPage() {
 
         if (uniqueCombinedQaArray.length > 0) {
           const combinedResultString = JSON.stringify(uniqueCombinedQaArray);
-          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl });
+          setAiResult({ result: combinedResultString, imageUrl: aiResult?.imageUrl || generateMoreFormState.result.imageUrl });
         } else if (newQaText) { 
-          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl });
+          setAiResult({ result: newQaText, imageUrl: aiResult?.imageUrl || generateMoreFormState.result.imageUrl });
         }
 
 
@@ -158,7 +159,7 @@ export default function AiResultsPage() {
           className: "bg-green-500/10 border-green-500",
         });
         const newResultText = `${currentDisplayResult}\n\n---\n\n**Your Question:** ${previousFollowUpQuestionForDisplay}\n\n**Answer:**\n${followUpState.followUpAnswer}`;
-        setAiResult({ result: newResultText, imageUrl: aiResult?.imageUrl });
+        setAiResult({ result: newResultText, imageUrl: aiResult?.imageUrl }); // Assuming follow-up doesn't generate new images for now
         setFollowUpQuestion(""); // Clear input
         setPreviousFollowUpQuestionForDisplay("");
          if (!isSubscribed) {
@@ -185,7 +186,11 @@ export default function AiResultsPage() {
             `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
           ).join('\n\n---\n\n');
       } catch (e) {
-        console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e, "Problematic JSON:", currentDisplayResult.substring(0,100));
+        console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
+        // Fallback to raw text if parsing Q&A fails, but log the problematic JSON
+        if (typeof e === 'object' && e !== null && 'message' in e) {
+            console.error("Problematic JSON (first 100 chars):", currentDisplayResult.substring(0,100) + (currentDisplayResult.length > 100 ? "..." : ""));
+        }
         return currentDisplayResult; 
       }
     }
@@ -284,7 +289,7 @@ export default function AiResultsPage() {
       return;
     }
 
-    setPreviousFollowUpQuestionForDisplay(followUpQuestion); // Store for display after AI response
+    setPreviousFollowUpQuestionForDisplay(followUpQuestion); 
 
     const formData = new FormData();
     formData.append('previousResultText', currentDisplayResult);
@@ -314,16 +319,11 @@ export default function AiResultsPage() {
                 <p className="text-foreground whitespace-pre-wrap">{String(qa.Answer ?? 'N/A')}</p>
               </div>
             ))}
-            {aiResult?.imageUrl && (
-              <div className="mt-6">
-                <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
-              </div>
-            )}
           </div>
         );
       } catch (e) {
-        const errorMessage = e instanceof Error ? e.message : "Unknown error";
-        console.error("Error parsing Q&A JSON in renderContent:", errorMessage, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
+        console.error("Error parsing Q&A JSON in renderContent:", e, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
+        // Fallback to plain text display if parsing fails
         return (
              <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
                 {currentDisplayResult}
@@ -331,17 +331,10 @@ export default function AiResultsPage() {
         );
       }
     }
-
+    // For "Summarize", "Text", "Explain" and other non-Q&A formats
     return (
-      <div>
-        <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
-          {currentDisplayResult}
-        </div>
-        {aiResult?.imageUrl && (
-          <div className="mt-6">
-             <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration"/>
-          </div>
-        )}
+      <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+        {currentDisplayResult}
       </div>
     );
   };
@@ -415,27 +408,32 @@ export default function AiResultsPage() {
             Here's the content processed by our AI based on your request.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="relative w-full">
-            <ScrollArea className="h-[400px] w-full rounded-md border border-border p-4 bg-secondary/30">
-              {isLoadingMore ?
-                <div className="flex flex-col items-center justify-center h-full">
-                   <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
-                   <p className="text-muted-foreground">Generating more Q&A...</p>
-                </div>
-               : renderContent()}
-            </ScrollArea>
+        <CardContent className="relative"> {/* Added relative for copy button positioning */}
+            <div className="p-4 rounded-md"> {/* Wrapper for padding, replacing ScrollArea's padding */}
+                {isLoadingMore ? (
+                    <div className="flex flex-col items-center justify-center min-h-[200px]"> {/* Ensure loader is visible */}
+                        <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                        <p className="text-muted-foreground">Generating more Q&A...</p>
+                    </div>
+                ) : (
+                    renderContent()
+                )}
+                {aiResult?.imageUrl && (
+                    <div className="mt-6">
+                        <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
+                    </div>
+                )}
+            </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={handleCopy}
-              className="absolute top-2 right-2 text-muted-foreground hover:text-primary p-1 h-8 w-8 z-10"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-primary p-1 h-8 w-8 z-10" // Adjusted positioning
               aria-label="Copy result"
               title="Copy result"
             >
               <Copy className="h-5 w-5" />
             </Button>
-          </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
             {lastAiInput?.desiredFormat === 'Question Answering' && (
