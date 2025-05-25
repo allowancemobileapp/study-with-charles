@@ -67,13 +67,13 @@ export async function processAssignmentAction(
 
     if (!validatedFields.success) {
       const validationErrors = validatedFields.error.flatten().fieldErrors;
-      console.error("Server Action: Validation failed (processAssignmentAction).", validationErrors);
+      console.error("Server Action: Validation failed (processAssignmentAction). Errors:", JSON.stringify(validationErrors));
       const errorState: AssignmentFormState = {
         errors: validationErrors,
         message: "Validation failed. Please check your inputs.",
         result: null,
       };
-      console.log("Server Action: Returning validation error state (processAssignmentAction) (preview):", { message: errorState.message, errors: errorState.errors });
+      console.log("Server Action: Returning validation error state (processAssignmentAction). State:", JSON.stringify(errorState));
       return errorState;
     }
 
@@ -87,48 +87,53 @@ export async function processAssignmentAction(
       userTextQuery: userTextQuery || undefined,
     };
 
-    console.log("Server Action: Calling AI flow summarizeContent...");
+    console.log("Server Action: Calling AI flow summarizeContent with input:", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
     const resultFromFlow = await summarizeContent(aiInput);
 
+    // This check might be redundant if the AI flow's output schema ensures this, but good for safety.
     if (!resultFromFlow || typeof resultFromFlow.result !== 'string') {
         console.error("Server Action: AI flow (summarizeContent) returned invalid or missing output structure. Result from flow:", JSON.stringify(resultFromFlow).substring(0,500));
-        throw new Error('AI model did not return a valid output structure.');
+        throw new Error('AI model did not return a valid output structure after flow execution.');
     }
 
-    console.log("Server Action: AI flow (summarizeContent) completed. Result from flow (first 300 chars of result field):", resultFromFlow.result.substring(0, 300) + (resultFromFlow.result.length > 300 ? "..." : ""));
-    console.log("Server Action: AI flow (summarizeContent) also returned imageUrl (if any):", resultFromFlow.imageUrl);
+    console.log("Server Action: AI flow (summarizeContent) completed. Result field length:", resultFromFlow.result.length, "ImageUrl present:", !!resultFromFlow.imageUrl);
 
     const successState: AssignmentFormState = {
       result: resultFromFlow,
       message: "Processing successful! Here are your results.",
       errors: {},
     };
-    console.log("Server Action: Returning success state (processAssignmentAction) (preview):", { message: successState.message, resultLength: successState.result?.result.length, imageUrlPresent: !!successState.result?.imageUrl });
+    console.log("Server Action: Returning success state (processAssignmentAction). Message:", successState.message, "Result length:", successState.result?.result.length);
     return successState;
 
   } catch (error: unknown) {
     let userFriendlyMessage = "An error occurred while processing your request. Please try again.";
-    // Log the full technical error on the server for debugging
+    
+    console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.");
     if (error instanceof Error) {
-        console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.", error.name, error.message, error.stack);
-        // You could check for specific error messages from the AI flow if needed
-        if (error.message.includes("400 Bad Request")) {
-            userFriendlyMessage = "There was an issue with the request to the AI. Please check your input or try a different query.";
-        } else if (error.message.includes("AI model did not return a valid output")) {
-            userFriendlyMessage = "The AI returned an unexpected result. Please try again or rephrase your request.";
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        if (error.stack) console.error("Error Stack:", error.stack);
+        // Refine user message based on common error types if possible
+        if (error.message.includes("AI model did not return a valid output")) {
+            userFriendlyMessage = "The AI returned an unexpected result format. Please try rephrasing or try again.";
+        } else if (error.message.toLowerCase().includes("bad request") || error.message.includes("400")) {
+             userFriendlyMessage = "There was an issue with the request to the AI service. Please check your input or try again later.";
+        } else if (error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("authentication")) {
+            userFriendlyMessage = "There's an issue with accessing the AI service. Please try again later.";
         } else {
              userFriendlyMessage = "AI Processing Error. Please try again later.";
         }
     } else {
-        console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an unknown error type.", error);
+        console.error("Unknown error type caught in server action:", error);
     }
     
     const errorState: AssignmentFormState = {
       message: userFriendlyMessage,
       result: null,
-      errors: { general: [userFriendlyMessage] } // Provide a simplified general error
+      errors: { general: [userFriendlyMessage] } 
     };
-    console.log("Server Action: Returning error state (processAssignmentAction):", JSON.stringify(errorState));
+    console.log("Server Action: Returning error state (processAssignmentAction). State:", JSON.stringify(errorState));
     return errorState;
   }
 }
@@ -227,5 +232,3 @@ export async function processFollowUpAction(
     };
   }
 }
-
-    
