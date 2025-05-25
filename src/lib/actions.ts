@@ -2,7 +2,7 @@
 "use server";
 
 import { summarizeContent, type SummarizeContentInput, type SummarizeContentOutput } from "@/ai/flows/summarize-content";
-import { answerFollowUp, type AnswerFollowUpInput, type AnswerFollowUpOutput } from "@/ai/flows/answer-follow-up"; // New import
+import { answerFollowUp, type AnswerFollowUpInput, type AnswerFollowUpOutput } from "@/ai/flows/answer-follow-up";
 import { z } from "zod";
 
 const AssignmentFormSchema = z.object({
@@ -73,7 +73,7 @@ export async function processAssignmentAction(
         message: "Validation failed. Please check your inputs.",
         result: null,
       };
-      console.log("Server Action: Returning validation error state (processAssignmentAction):", JSON.stringify(errorState).substring(0,500));
+      console.log("Server Action: Returning validation error state (processAssignmentAction) (preview):", { message: errorState.message, errors: errorState.errors });
       return errorState;
     }
 
@@ -91,33 +91,42 @@ export async function processAssignmentAction(
     const resultFromFlow = await summarizeContent(aiInput);
 
     if (!resultFromFlow || typeof resultFromFlow.result !== 'string') {
-        console.error("Server Action: AI flow (summarizeContent) returned invalid or missing output structure. Result from flow:", resultFromFlow);
-        throw new Error('AI model did not return a valid output structure. Expected an object with a "result" string field.');
+        console.error("Server Action: AI flow (summarizeContent) returned invalid or missing output structure. Result from flow:", JSON.stringify(resultFromFlow).substring(0,500));
+        throw new Error('AI model did not return a valid output structure.');
     }
 
     console.log("Server Action: AI flow (summarizeContent) completed. Result from flow (first 300 chars of result field):", resultFromFlow.result.substring(0, 300) + (resultFromFlow.result.length > 300 ? "..." : ""));
+    console.log("Server Action: AI flow (summarizeContent) also returned imageUrl (if any):", resultFromFlow.imageUrl);
 
     const successState: AssignmentFormState = {
       result: resultFromFlow,
-      message: "Processing successful!",
+      message: "Processing successful! Here are your results.",
       errors: {},
     };
-    console.log("Server Action: Returning success state (processAssignmentAction) (preview):", { message: successState.message, resultLength: successState.result?.result.length });
+    console.log("Server Action: Returning success state (processAssignmentAction) (preview):", { message: successState.message, resultLength: successState.result?.result.length, imageUrlPresent: !!successState.result?.imageUrl });
     return successState;
 
   } catch (error: unknown) {
-    let errorMessage = "An unexpected server error occurred during AI processing. Please try again.";
+    let userFriendlyMessage = "An error occurred while processing your request. Please try again.";
+    // Log the full technical error on the server for debugging
     if (error instanceof Error) {
         console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.", error.name, error.message, error.stack);
-        errorMessage = `AI Processing Error: ${error.message}`;
+        // You could check for specific error messages from the AI flow if needed
+        if (error.message.includes("400 Bad Request")) {
+            userFriendlyMessage = "There was an issue with the request to the AI. Please check your input or try a different query.";
+        } else if (error.message.includes("AI model did not return a valid output")) {
+            userFriendlyMessage = "The AI returned an unexpected result. Please try again or rephrase your request.";
+        } else {
+             userFriendlyMessage = "AI Processing Error. Please try again later.";
+        }
     } else {
         console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an unknown error type.", error);
     }
     
     const errorState: AssignmentFormState = {
-      message: errorMessage,
+      message: userFriendlyMessage,
       result: null,
-      errors: { general: [errorMessage] }
+      errors: { general: [userFriendlyMessage] } // Provide a simplified general error
     };
     console.log("Server Action: Returning error state (processAssignmentAction):", JSON.stringify(errorState));
     return errorState;
@@ -156,15 +165,21 @@ export async function processFollowUpAction(
     subjectTitle: formData.get("subjectTitle")?.toString(),
     desiredFormat: formData.get("desiredFormat")?.toString(),
   };
-  console.log("Server Action: Raw form data for processFollowUpAction:", rawFormData);
+  console.log("Server Action: Raw form data for processFollowUpAction (preview):", {
+      followUpQueryLength: rawFormData.followUpQuery?.length,
+      subjectTitle: rawFormData.subjectTitle,
+      desiredFormat: rawFormData.desiredFormat,
+      previousResultTextLength: rawFormData.previousResultText?.length
+  });
 
   try {
     const validatedFields = FollowUpFormSchema.safeParse(rawFormData);
     if (!validatedFields.success) {
-      console.error("Server Action: Validation failed (processFollowUpAction).", validatedFields.error.flatten().fieldErrors);
+      const validationErrors = validatedFields.error.flatten().fieldErrors
+      console.error("Server Action: Validation failed (processFollowUpAction).", validationErrors);
       return {
-        errors: validatedFields.error.flatten().fieldErrors,
-        message: "Invalid follow-up input.",
+        errors: validationErrors,
+        message: "Invalid follow-up input. Please check your question.",
         followUpAnswer: null,
       };
     }
@@ -182,32 +197,35 @@ export async function processFollowUpAction(
     const resultFromFlow: AnswerFollowUpOutput = await answerFollowUp(aiInput);
 
     if (!resultFromFlow || typeof resultFromFlow.followUpAnswer !== 'string') {
-      console.error("Server Action: AI flow (answerFollowUp) returned invalid or missing output. Result:", resultFromFlow);
+      console.error("Server Action: AI flow (answerFollowUp) returned invalid or missing output. Result:", JSON.stringify(resultFromFlow));
       throw new Error('AI model did not return a valid follow-up answer.');
     }
     
     console.log("Server Action: AI flow (answerFollowUp) completed. Answer length:", resultFromFlow.followUpAnswer.length);
     return {
-      message: "Follow-up processed.",
+      message: "Follow-up processed successfully!",
       followUpAnswer: resultFromFlow.followUpAnswer,
       errors: {},
     };
 
   } catch (error: unknown) {
-    let errorMessage = "Failed to process follow-up question.";
+    let userFriendlyMessage = "Failed to process your follow-up question. Please try again.";
      if (error instanceof Error) {
         console.error("CRITICAL ERROR in processFollowUpAction (server):", error.name, error.message, error.stack);
-        errorMessage = `Follow-up Error: ${error.message}`;
+        if (error.message.includes("AI model did not return a valid")) {
+            userFriendlyMessage = "The AI returned an unexpected response to your follow-up. Please try rephrasing.";
+        } else {
+            userFriendlyMessage = "An error occurred with the AI follow-up. Please try again later.";
+        }
     } else {
         console.error("CRITICAL ERROR in processFollowUpAction (server): Caught an unknown error type.", error);
     }
     return {
-      message: errorMessage,
+      message: userFriendlyMessage,
       followUpAnswer: null,
-      errors: { general: [errorMessage] },
+      errors: { general: [userFriendlyMessage] },
     };
   }
 }
-
 
     

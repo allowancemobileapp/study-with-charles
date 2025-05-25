@@ -143,7 +143,7 @@ export function AssignmentForm() {
   useEffect(() => {
     if (formState) {
       if (formState.errors && Object.keys(formState.errors).length > 0 && !formState.result) {
-        const errorMessages = Object.values(formState.errors).flat().join(' ') || (formState.message || "An error occurred.");
+        const errorMessages = formState.message || Object.values(formState.errors).flat().join(' ') || "An error occurred. Please check your inputs.";
         toast({
           title: "Error",
           description: errorMessages,
@@ -153,7 +153,7 @@ export function AssignmentForm() {
       else if (formState.result && formState.result.result) {
         toast({
           title: "Success!",
-          description: formState.message || "Processing successful!",
+          description: formState.message || "Processing successful! Results are ready.",
           variant: "default",
           className: "bg-green-500/10 border-green-500",
         });
@@ -193,55 +193,55 @@ export function AssignmentForm() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="user-text-query" className="text-foreground flex items-center">
-                <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question & Optional File
-              </Label>
-              <div className="relative">
-                <Textarea
-                  id="user-text-query"
-                  placeholder="Type your question, upload/snap note or paste assignment here...."
-                  value={userTextQuery}
-                  onChange={(e) => setUserTextQuery(e.target.value)}
-                  className="focus-visible:ring-accent py-2 pr-10" 
-                  rows={4} 
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7"
-                  aria-label="Attach file"
-                  title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
-                >
-                  <Paperclip className="h-5 w-5" />
+          <div className="space-y-2">
+            <Label htmlFor="user-text-query" className="text-foreground flex items-center">
+              <PencilLine className="mr-2 h-5 w-5 text-primary" /> Your Question & Optional File
+            </Label>
+            <div className="relative">
+              <Textarea
+                id="user-text-query"
+                placeholder="Type your question, upload/snap note or paste assignment here...."
+                value={userTextQuery}
+                onChange={(e) => setUserTextQuery(e.target.value)}
+                className="focus-visible:ring-accent py-2 pr-10" 
+                rows={4} 
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-1.5 right-1.5 text-muted-foreground hover:text-primary p-1 h-7 w-7"
+                aria-label="Attach file"
+                title="Attach file (Max 4MB: PDF, JPG, PNG, TXT, DOCX)"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+            </div>
+            {formState?.errors?.userTextQuery && <p className="text-sm text-destructive mt-1">{formState.errors.userTextQuery.join(', ')}</p>}
+            
+            {selectedFile && (
+              <div className="text-sm text-muted-foreground mt-2 flex items-center justify-between bg-secondary/30 p-2 rounded-md border">
+                <div className="flex items-center truncate min-w-0">
+                  <FileText className="mr-2 h-4 w-4 text-primary shrink-0" />
+                  <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-destructive hover:text-destructive/80 h-7 w-7 p-1 shrink-0 ml-2">
+                  <XIcon className="h-4 w-4" />
                 </Button>
               </div>
-              {formState?.errors?.userTextQuery && <p className="text-sm text-destructive mt-1">{formState.errors.userTextQuery.join(', ')}</p>}
-              
-              {selectedFile && (
-                <div className="text-sm text-muted-foreground mt-2 flex items-center justify-between bg-secondary/30 p-2 rounded-md border">
-                  <div className="flex items-center truncate min-w-0">
-                    <FileText className="mr-2 h-4 w-4 text-primary shrink-0" />
-                    <span className="truncate" title={selectedFile.name}>{selectedFile.name}</span>
-                  </div>
-                  <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="text-destructive hover:text-destructive/80 h-7 w-7 p-1 shrink-0 ml-2">
-                    <XIcon className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
-              {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Click the 📎 to attach a file. Max 4MB: PDF, JPG, PNG, TXT, DOCX.</p>}
+            )}
+            {formState?.errors?.fileDataUri && <p className="text-sm text-destructive mt-1">{formState.errors.fileDataUri.join(', ')}</p>}
+            {!selectedFile && <p className="text-xs text-muted-foreground mt-1">Click the 📎 to attach a file. Max 4MB: PDF, JPG, PNG, TXT, DOCX.</p>}
 
-              <Input
-                id="file-upload-hidden"
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
-                onChange={handleFileChange}
-                className="hidden"
-              />
+            <Input
+              id="file-upload-hidden"
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.txt,.md,.docx"
+              onChange={handleFileChange}
+              className="hidden"
+            />
           </div>
 
           <div className="space-y-2">
@@ -299,6 +299,5 @@ export function AssignmentForm() {
     </Card>
   );
 }
-    
 
     
