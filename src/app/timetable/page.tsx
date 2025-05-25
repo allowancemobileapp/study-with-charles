@@ -28,10 +28,10 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { scheduleEmailNotificationAction, type ScheduleEmailNotificationFormState } from '@/lib/actions'; // Import the new action
-import { auth } from '@/lib/firebase'; // Import Firebase auth for user email
+import { scheduleEmailNotificationAction, type ScheduleEmailNotificationFormState } from '@/lib/actions';
+import { auth } from '@/lib/firebase';
 
 
 type DayOfWeek = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat' | 'Sun';
@@ -100,7 +100,6 @@ function TimetableContent() {
   const [viewResultModalOriginalFormat, setViewResultModalOriginalFormat] = useState<string | null | DesiredFormatType>(null);
   const [isViewResultModalOpen, setIsViewResultModalOpen] = useState(false);
 
-  // Action state for scheduling email notification
   const [scheduleEmailState, runScheduleEmailAction, isSchedulingEmail] = useActionState(scheduleEmailNotificationAction, initialScheduleEmailState);
   const [, startScheduleEmailTransition] = useTransition();
 
@@ -128,7 +127,6 @@ function TimetableContent() {
     if (isLoggedIn && events.length > 0) {
       localStorage.setItem('timetableEvents', JSON.stringify(events));
     } else if (isLoggedIn && events.length === 0) {
-      // Clear localStorage if all events are removed or user logs out
       if (localStorage.getItem('timetableEvents')) {
         localStorage.removeItem('timetableEvents');
       }
@@ -138,12 +136,14 @@ function TimetableContent() {
   useEffect(() => {
     if (scheduleEmailState?.message) {
         toast({
-            title: scheduleEmailState.errors && Object.keys(scheduleEmailState.errors).length > 0 ? "Notification Error" : "Notification Info",
+            title: scheduleEmailState.errors && Object.keys(scheduleEmailState.errors).length > 0 ? "Notification Setup Error" : "Notification Setup",
             description: scheduleEmailState.message,
             variant: scheduleEmailState.errors && Object.keys(scheduleEmailState.errors).length > 0 ? "destructive" : "default",
+            className: scheduleEmailState.errors && Object.keys(scheduleEmailState.errors).length === 0 ? "bg-blue-500/10 border-blue-500" : undefined,
         });
     }
-  }, [scheduleEmailState, toast]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleEmailState]);
 
   const resetForm = useCallback(() => {
     setTitle('');
@@ -162,7 +162,7 @@ function TimetableContent() {
 
   useEffect(() => {
     const action = searchParams.get('action');
-    if (action === 'schedule_result' && aiResult && lastAiInput && !isFormOpen && !editingEvent) {
+    if (action === 'schedule_result' && aiResult?.result && lastAiInput && !isFormOpen && !editingEvent) {
       toast({
         title: "Scheduling AI Result",
         description: "Event details pre-filled from your AI result.",
@@ -174,20 +174,18 @@ function TimetableContent() {
       );
       setDate(format(new Date(), 'yyyy-MM-dd'));
       setTime(format(new Date(), 'HH:mm'));
-      setNotifyByEmail(false); // Default to false, user can enable if premium
-      setAssociatedResultText(aiResult.result || '');
+      setNotifyByEmail(false);
+      setAssociatedResultText(aiResult.result);
       setCurrentOriginalFormat(lastAiInput.desiredFormat || 'Unknown');
       setRepeatType('none');
       setSelectedWeeklyDays([]);
 
       setIsFormOpen(true);
       setEditingEvent(null);
-
-      // Clear the action from the URL to prevent re-triggering on refresh
       router.replace('/timetable', { scroll: false });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, aiResult, lastAiInput, router, isFormOpen, editingEvent, toast, resetForm]);
+  }, [searchParams, aiResult, lastAiInput, router, isFormOpen, editingEvent]);
 
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -218,7 +216,6 @@ function TimetableContent() {
         eventRepeatSetting = { type: 'none' };
     }
 
-
     const newEvent: TimetableEvent = {
       id: editingEvent ? editingEvent.id : crypto.randomUUID(),
       title,
@@ -235,18 +232,16 @@ function TimetableContent() {
       setEvents(events.map(ev => ev.id === editingEvent.id ? newEvent : ev));
       toast({ title: "Event Updated", description: `"${newEvent.title}" has been updated.`, className: "bg-blue-500/10 border-blue-500" });
     } else {
-      // Add new event and sort
       setEvents(prevEvents => [...prevEvents, newEvent].sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()));
       toast({ title: "Event Added", description: `"${newEvent.title}" has been added to your timetable.`, className: "bg-green-500/10 border-green-500" });
     }
 
-    // Conceptually register for email notification if selected
-    if (newEvent.notifyByEmail && auth.currentUser?.email) {
+    if (newEvent.notifyByEmail && auth.currentUser?.email && isSubscribed) {
         const formData = new FormData();
         formData.append('eventId', newEvent.id);
         formData.append('userEmail', auth.currentUser.email);
         formData.append('eventTitle', newEvent.title);
-        formData.append('eventDateTime', `${newEvent.date}T${newEvent.time}`);
+        formData.append('eventDateTime', `${newEvent.date}T${newEvent.time}`); // ISO 8601 format
         
         startScheduleEmailTransition(() => {
             runScheduleEmailAction(formData);
@@ -273,7 +268,6 @@ function TimetableContent() {
   const handleDelete = (id: string) => {
     setEvents(events.filter(ev => ev.id !== id));
     toast({ title: "Event Deleted", description: "The event has been removed from your timetable.", variant: "destructive" });
-    // Conceptually, if a backend existed, we might also send a request to un-schedule any notifications.
   };
 
   const todayFormatted = format(new Date(), 'yyyy-MM-dd');
@@ -324,13 +318,13 @@ function TimetableContent() {
           </div>
           <Button
             onClick={() => {
-              if (isFormOpen && !editingEvent) { // If form is open for new event, toggle to close
+              if (isFormOpen && !editingEvent) { 
                 resetForm();
-              } else if (isFormOpen && editingEvent) { // If form is open for editing, reset and open for new
-                 setIsFormOpen(false); // Keep form open but allow closing if editing
+              } else if (isFormOpen && editingEvent) { 
+                 setIsFormOpen(false); 
               }
-              else { // If form is closed, open for new event
-                resetForm(); // Ensure form is clean for new event
+              else { 
+                resetForm(); 
                 setIsFormOpen(true);
               }
             }}
@@ -458,17 +452,17 @@ function TimetableContent() {
                   </Tooltip>
                 </TooltipProvider>
                 <Label htmlFor="notify-email" className={`text-sm font-medium leading-none ${!isSubscribed ? 'opacity-50 cursor-not-allowed' : ''} text-foreground`}>
-                  Notify by Email <span className="text-xs text-muted-foreground">(Premium - Conceptual)</span>
+                  Notify by Email
                 </Label>
               </div>
-              {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">Conceptual: If a backend were set up, an email notification would be attempted for this event.</p>}
+              {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">A conceptual email notification will be logged for this event.</p>}
               {isSubscribed && repeatType !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatType}{repeatType === 'weekly' && selectedWeeklyDays.length > 0 ? ` on ${selectedWeeklyDays.join(', ')}` : ''}. Actual repeat instances not shown.</p>}
 
 
               <div className="flex justify-end space-x-3">
                 <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
                 <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary/90" disabled={isSchedulingEmail}>
-                  {editingEvent ? "Update Event" : "Add Event"}
+                  {isSchedulingEmail ? "Saving..." : (editingEvent ? "Update Event" : "Add Event")}
                 </Button>
               </div>
             </form>
@@ -546,7 +540,7 @@ function TimetableContent() {
                       {event.notifyByEmail && isSubscribed && (
                         <div className="flex items-center text-xs text-sky-400">
                             <MailCheck className="mr-1.5 h-3.5 w-3.5" />
-                            <span>Email notification conceptually active.</span>
+                            <span>Conceptual email notification noted.</span>
                         </div>
                       )}
                     </CardContent>
@@ -595,7 +589,7 @@ function TimetableContent() {
                     </div>
                   );
                 } catch (e) {
-                  console.error("ViewResultModal: Error parsing Q&A JSON", e, "Problematic JSON:", viewResultModalContent.substring(0,100));
+                  console.error("ViewResultModal: Error parsing Q&A JSON", e, "Problematic JSON (first 100 chars):", viewResultModalContent.substring(0,100) + (viewResultModalContent.length > 100 ? "..." : ""));
                   return <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">{viewResultModalContent}</div>;
                 }
               }
@@ -613,4 +607,3 @@ function TimetableContent() {
     </div>
   );
 }
-    

@@ -10,7 +10,7 @@ const AssignmentFormSchema = z.object({
     message: "File data must be a valid data URI.",
   }).optional(),
   subjectTitle: z.string().min(1, "Subject title is required."),
-  desiredFormat: z.enum(['Text', 'Summary', 'Question Answering', 'Explain']),
+  desiredFormat: z.enum(['Summary', 'Question Answering', 'Text', 'Explain']),
   userTextQuery: z.string().optional(),
 }).refine(data => {
     const hasFileData = data.fileDataUri && data.fileDataUri.startsWith('data:');
@@ -49,10 +49,10 @@ export async function processAssignmentAction(
   }));
 
   const rawFormData = {
-    fileDataUri: formData.get("fileDataUri")?.toString() || undefined, // Ensure undefined if empty
+    fileDataUri: formData.get("fileDataUri")?.toString() || undefined,
     subjectTitle: formData.get("subjectTitle")?.toString(),
     desiredFormat: formData.get("desiredFormat")?.toString(),
-    userTextQuery: formData.get("userTextQuery")?.toString() || undefined, // Ensure undefined if empty
+    userTextQuery: formData.get("userTextQuery")?.toString() || undefined,
   };
 
   console.log("Server Action: Parsed form data for validation (processAssignmentAction):", {
@@ -78,46 +78,42 @@ export async function processAssignmentAction(
     }
 
     const { fileDataUri, subjectTitle, desiredFormat, userTextQuery } = validatedFields.data;
-    console.log("Server Action: Validation successful. Input to AI flow (processAssignmentAction):", { subjectTitle, desiredFormat, fileDataUriLength: fileDataUri?.length, userTextQueryPresent: !!userTextQuery });
-
+    
     const aiInput: SummarizeContentInput = {
-      fileDataUri: fileDataUri || undefined, // Pass undefined if not present
+      fileDataUri: fileDataUri || undefined,
       subjectTitle,
-      desiredFormat: desiredFormat as 'Text' | 'Summary' | 'Question Answering' | 'Explain', 
-      userTextQuery: userTextQuery || undefined, // Pass undefined if not present
+      desiredFormat: desiredFormat as 'Summary' | 'Question Answering' | 'Text' | 'Explain',
+      userTextQuery: userTextQuery || undefined,
     };
 
     console.log("Server Action: Calling AI flow summarizeContent with input:", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
     const resultFromFlow = await summarizeContent(aiInput);
 
-    // This check might be redundant if the AI flow's output schema ensures this, but good for safety.
     if (!resultFromFlow || typeof resultFromFlow.result !== 'string') {
         console.error("Server Action: AI flow (summarizeContent) returned invalid or missing output structure. Result from flow:", JSON.stringify(resultFromFlow).substring(0,500));
         throw new Error('AI model did not return a valid output structure after flow execution.');
     }
 
     console.log("Server Action: AI flow (summarizeContent) completed. Result field length:", resultFromFlow.result.length, "ImageUrl present:", !!resultFromFlow.imageUrl);
-    console.log("Server Action: AI flow (summarizeContent) result preview:", resultFromFlow.result.substring(0,300));
-
+    console.log("Server Action: AI flow (summarizeContent) result preview (first 300 chars):", resultFromFlow.result.substring(0,300) + (resultFromFlow.result.length > 300 ? "..." : ""));
+    
     const successState: AssignmentFormState = {
       result: resultFromFlow,
       message: "Processing successful! Here are your results.",
-      errors: {}, // Ensure errors is an empty object on success
+      errors: {},
     };
-    console.log("Server Action: Returning success state (processAssignmentAction). Message:", successState.message, "Result length:", successState.result?.result.length, "Result preview:", successState.result?.result.substring(0,200));
+    console.log("Server Action: Returning success state (processAssignmentAction). State:", JSON.stringify(successState, (key, value) => key === 'result' && typeof value === 'object' && value?.result && value.result.length > 100 ? {...value, result: value.result.substring(0,100) + "..."} : value ));
     return successState;
 
   } catch (error: unknown) {
-    let userFriendlyMessage = "AI processing failed. Please check your input or try again later.";
+    let userFriendlyMessage = "AI processing failed. Please try again later.";
     
     console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.");
     if (error instanceof Error) {
         console.error("Error Name:", error.name);
         console.error("Error Message:", error.message);
         if (error.stack) console.error("Error Stack:", error.stack);
-        
         userFriendlyMessage = `AI Processing Error: ${error.message}`;
-        
     } else {
         console.error("Unknown error type caught in server action:", error);
     }
@@ -133,7 +129,6 @@ export async function processAssignmentAction(
 }
 
 
-// Schema for follow-up action
 const FollowUpFormSchema = z.object({
   previousResultText: z.string().min(1, "Previous result text is required."),
   followUpQuery: z.string().optional(),
@@ -154,7 +149,7 @@ const FollowUpFormSchema = z.object({
 export type FollowUpFormState = {
   message?: string | null;
   followUpAnswer?: string | null;
-  followUpImageUrl?: string | null; // To handle potential images in follow-up
+  followUpImageUrl?: string | null;
   errors?: {
     previousResultText?: string[];
     followUpQuery?: string[];
@@ -243,7 +238,6 @@ export async function processFollowUpAction(
   }
 }
 
-// New Server Action for scheduling email notification (conceptual)
 const ScheduleEmailNotificationSchema = z.object({
     eventId: z.string().min(1, "Event ID is required."),
     userEmail: z.string().email("A valid user email is required."),
@@ -287,17 +281,26 @@ export async function scheduleEmailNotificationAction(
 
     const { eventId, userEmail, eventTitle, eventDateTime } = validatedFields.data;
 
-    // In a real application, this is where you would:
-    // 1. Save this information to a persistent database (e.g., Firestore).
-    // 2. This database entry would then be picked up by a scheduled backend job (e.g., a Firebase Cloud Function triggered by Cloud Scheduler).
-    // 3. The scheduled job would use an email sending service (e.g., SendGrid, Resend) to send the actual email.
+    // TODO - REAL IMPLEMENTATION REQUIRED:
+    // 1. Store this notification request in a persistent database (e.g., Firestore).
+    //    Example structure for Firestore document in 'eventNotifications' collection:
+    //    {
+    //      eventId: eventId,
+    //      userEmail: userEmail,
+    //      eventTitle: eventTitle,
+    //      eventDateTime: new Date(eventDateTime), // Store as Firestore Timestamp
+    //      status: "pending", // e.g., "pending", "sent", "error"
+    //      userId: auth.currentUser.uid (if available and needed for user-specific queries)
+    //    }
+    // 2. A separate backend scheduler (e.g., Firebase Cloud Function triggered by Cloud Scheduler, or Vercel Cron Job)
+    //    will query this database for pending notifications that are due.
+    // 3. The scheduler will then use an email sending service (e.g., SendGrid, Resend) to send the actual email.
+    // 4. After sending, the scheduler should update the status in the database.
 
-    console.log(`Conceptual: Email notification registered for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}.`);
-    console.log("Conceptual: In a real system, this info would be stored, and a backend scheduler would send the email.");
+    console.log(`Conceptual: Email notification registration for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}. This would now be written to a database.`);
     
-    // For now, we just return a success message to the client.
     return {
-        message: `Conceptual: Email notification for "${eventTitle}" has been noted. (Actual email sending requires backend setup).`,
+        message: `Email notification for "${eventTitle}" has been noted. (This is a conceptual step; actual email sending requires backend setup).`,
         errors: {},
     };
 }
