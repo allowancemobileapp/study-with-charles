@@ -97,13 +97,14 @@ export async function processAssignmentAction(
     }
 
     console.log("Server Action: AI flow (summarizeContent) completed. Result field length:", resultFromFlow.result.length, "ImageUrl present:", !!resultFromFlow.imageUrl);
+    console.log("Server Action: AI flow (summarizeContent) result preview:", resultFromFlow.result.substring(0,300));
 
     const successState: AssignmentFormState = {
       result: resultFromFlow,
       message: "Processing successful! Here are your results.",
       errors: {}, // Ensure errors is an empty object on success
     };
-    console.log("Server Action: Returning success state (processAssignmentAction). Message:", successState.message, "Result length:", successState.result?.result.length);
+    console.log("Server Action: Returning success state (processAssignmentAction). Message:", successState.message, "Result length:", successState.result?.result.length, "Result preview:", successState.result?.result.substring(0,200));
     return successState;
 
   } catch (error: unknown) {
@@ -114,16 +115,9 @@ export async function processAssignmentAction(
         console.error("Error Name:", error.name);
         console.error("Error Message:", error.message);
         if (error.stack) console.error("Error Stack:", error.stack);
-        // Refine user message based on common error types if possible
-        if (error.message.includes("AI model did not return a valid output")) {
-            userFriendlyMessage = "The AI returned an unexpected result format. Please try rephrasing or try again.";
-        } else if (error.message.toLowerCase().includes("bad request") || error.message.includes("400")) {
-             userFriendlyMessage = "There was an issue with the request to the AI service. Please check your input or try again later.";
-        } else if (error.message.toLowerCase().includes("api key") || error.message.toLowerCase().includes("authentication")) {
-            userFriendlyMessage = "There's an issue with accessing the AI service. Please try again later.";
-        } else {
-             userFriendlyMessage = `AI Processing Error: ${error.message}`;
-        }
+        
+        userFriendlyMessage = `AI Processing Error: ${error.message}`;
+        
     } else {
         console.error("Unknown error type caught in server action:", error);
     }
@@ -247,4 +241,63 @@ export async function processFollowUpAction(
       errors: { general: [userFriendlyMessage] },
     };
   }
+}
+
+// New Server Action for scheduling email notification (conceptual)
+const ScheduleEmailNotificationSchema = z.object({
+    eventId: z.string().min(1, "Event ID is required."),
+    userEmail: z.string().email("A valid user email is required."),
+    eventTitle: z.string().min(1, "Event title is required."),
+    eventDateTime: z.string().datetime("Event date and time must be a valid ISO datetime string."),
+});
+
+export type ScheduleEmailNotificationFormState = {
+    message: string | null;
+    errors?: {
+        eventId?: string[];
+        userEmail?: string[];
+        eventTitle?: string[];
+        eventDateTime?: string[];
+        general?: string[];
+    };
+};
+
+export async function scheduleEmailNotificationAction(
+    _prevState: unknown,
+    formData: FormData
+): Promise<ScheduleEmailNotificationFormState> {
+    console.log("Server Action: scheduleEmailNotificationAction initiated.");
+    const rawData = {
+        eventId: formData.get("eventId")?.toString(),
+        userEmail: formData.get("userEmail")?.toString(),
+        eventTitle: formData.get("eventTitle")?.toString(),
+        eventDateTime: formData.get("eventDateTime")?.toString(),
+    };
+
+    const validatedFields = ScheduleEmailNotificationSchema.safeParse(rawData);
+
+    if (!validatedFields.success) {
+        const validationErrors = validatedFields.error.flatten().fieldErrors;
+        console.error("Server Action: scheduleEmailNotificationAction validation failed.", validationErrors);
+        return {
+            message: "Invalid data for scheduling email notification.",
+            errors: validationErrors,
+        };
+    }
+
+    const { eventId, userEmail, eventTitle, eventDateTime } = validatedFields.data;
+
+    // In a real application, this is where you would:
+    // 1. Save this information to a persistent database (e.g., Firestore).
+    // 2. This database entry would then be picked up by a scheduled backend job (e.g., a Firebase Cloud Function triggered by Cloud Scheduler).
+    // 3. The scheduled job would use an email sending service (e.g., SendGrid, Resend) to send the actual email.
+
+    console.log(`Conceptual: Email notification registered for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}.`);
+    console.log("Conceptual: In a real system, this info would be stored, and a backend scheduler would send the email.");
+    
+    // For now, we just return a success message to the client.
+    return {
+        message: `Conceptual: Email notification for "${eventTitle}" has been noted. (Actual email sending requires backend setup).`,
+        errors: {},
+    };
 }
