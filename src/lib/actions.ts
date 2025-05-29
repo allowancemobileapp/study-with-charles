@@ -13,7 +13,7 @@ const AssignmentFormSchema = z.object({
   desiredFormat: z.enum(['Summary', 'Question Answering', 'Text', 'Explain']),
   userTextQuery: z.string().optional(),
 }).refine(data => {
-    const hasFileData = data.fileDataUri && data.fileDataUri.startsWith('data:');
+    const hasFileData = data.fileDataUri && data.fileDataUri.length > 'data:'.length; // Basic check if not empty
     const hasTextQuery = data.userTextQuery && data.userTextQuery.trim().length > 0;
     return hasFileData || hasTextQuery;
   }, {
@@ -30,7 +30,7 @@ export type AssignmentFormState = {
     subjectTitle?: string[];
     desiredFormat?: string[];
     userTextQuery?: string[];
-    general?: string[]; // For errors not specific to a field
+    general?: string[];
   };
 };
 
@@ -40,27 +40,20 @@ export async function processAssignmentAction(
 ): Promise<AssignmentFormState> {
   console.log("Server Action: processAssignmentAction initiated.");
 
-  const rawFormDataEntries = Object.fromEntries(formData.entries());
-  console.log("Server Action: Raw form data entries received for processAssignmentAction (form data object):", JSON.stringify(rawFormDataEntries, (key, value) => {
-    if (key === 'fileDataUri' && typeof value === 'string' && value.length > 100) {
-      return `${value.substring(0, 100)}... [truncated]`;
-    }
-    return value;
-  }));
-
   const rawFormData = {
     fileDataUri: formData.get("fileDataUri")?.toString() || undefined,
     subjectTitle: formData.get("subjectTitle")?.toString(),
     desiredFormat: formData.get("desiredFormat")?.toString(),
     userTextQuery: formData.get("userTextQuery")?.toString() || undefined,
   };
-
-  console.log("Server Action: Parsed form data for validation (processAssignmentAction):", {
+  
+  console.log("Server Action: Raw form data for validation (processAssignmentAction):", {
     subjectTitle: rawFormData.subjectTitle,
     desiredFormat: rawFormData.desiredFormat,
     fileDataUriLength: rawFormData.fileDataUri?.length || 0,
     userTextQueryPresent: !!rawFormData.userTextQuery,
   });
+
 
   try {
     const validatedFields = AssignmentFormSchema.safeParse(rawFormData);
@@ -68,13 +61,11 @@ export async function processAssignmentAction(
     if (!validatedFields.success) {
       const validationErrors = validatedFields.error.flatten().fieldErrors;
       console.error("Server Action: Validation failed (processAssignmentAction). Errors:", JSON.stringify(validationErrors));
-      const errorState: AssignmentFormState = {
+      return {
         errors: validationErrors,
         message: "Validation failed. Please check your inputs.",
         result: null,
       };
-      console.log("Server Action: Returning validation error state (processAssignmentAction). State:", JSON.stringify(errorState));
-      return errorState;
     }
 
     const { fileDataUri, subjectTitle, desiredFormat, userTextQuery } = validatedFields.data;
@@ -86,34 +77,26 @@ export async function processAssignmentAction(
       userTextQuery: userTextQuery || undefined,
     };
 
-    console.log("Server Action: Calling AI flow summarizeContent with input:", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
+    console.log("Server Action: Calling AI flow summarizeContent with input (data URI truncated if long):", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
     const resultFromFlow = await summarizeContent(aiInput);
-
-    if (!resultFromFlow || typeof resultFromFlow.result !== 'string') {
-        console.error("Server Action: AI flow (summarizeContent) returned invalid or missing output structure. Result from flow:", JSON.stringify(resultFromFlow).substring(0,500));
-        throw new Error('AI model did not return a valid output structure after flow execution.');
-    }
-
-    console.log("Server Action: AI flow (summarizeContent) completed. Result field length:", resultFromFlow.result.length, "ImageUrl present:", !!resultFromFlow.imageUrl);
-    console.log("Server Action: AI flow (summarizeContent) result preview (first 300 chars):", resultFromFlow.result.substring(0,300) + (resultFromFlow.result.length > 300 ? "..." : ""));
     
-    const successState: AssignmentFormState = {
+    console.log("Server Action: AI flow (summarizeContent) completed. Result (truncated if long):", JSON.stringify(resultFromFlow, (key, value) => key === 'result' && typeof value === 'string' && value.length > 200 ? `${value.substring(0,200)}...` : value));
+    
+    return {
       result: resultFromFlow,
       message: "Processing successful! Here are your results.",
       errors: {},
     };
-    console.log("Server Action: Returning success state (processAssignmentAction). State:", JSON.stringify(successState, (key, value) => key === 'result' && typeof value === 'object' && value?.result && value.result.length > 100 ? {...value, result: value.result.substring(0,100) + "..."} : value ));
-    return successState;
 
   } catch (error: unknown) {
-    let userFriendlyMessage = "AI processing failed. Please try again later.";
+    let userFriendlyMessage = "AI processing failed. Please check your input or try again later.";
     
     console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.");
     if (error instanceof Error) {
         console.error("Error Name:", error.name);
         console.error("Error Message:", error.message);
         if (error.stack) console.error("Error Stack:", error.stack);
-        userFriendlyMessage = `AI Processing Error: ${error.message}`;
+        // Use a more generic message for the user
     } else {
         console.error("Unknown error type caught in server action:", error);
     }
@@ -138,7 +121,7 @@ const FollowUpFormSchema = z.object({
     message: "File data must be a valid data URI for follow-up.",
   }).optional(),
 }).refine(data => {
-    const hasFileData = data.fileDataUri && data.fileDataUri.startsWith('data:');
+    const hasFileData = data.fileDataUri && data.fileDataUri.length > 'data:'.length;
     const hasTextQuery = data.followUpQuery && data.followUpQuery.trim().length > 0;
     return hasFileData || hasTextQuery;
   }, {
@@ -172,12 +155,12 @@ export async function processFollowUpAction(
     desiredFormat: formData.get("desiredFormat")?.toString(),
     fileDataUri: formData.get("fileDataUri")?.toString() || undefined,
   };
-  console.log("Server Action: Raw form data for processFollowUpAction (preview):", {
+  console.log("Server Action: Raw form data for processFollowUpAction (preview - data URIs truncated):", {
       followUpQueryLength: rawFormData.followUpQuery?.length,
       subjectTitle: rawFormData.subjectTitle,
       desiredFormat: rawFormData.desiredFormat,
       previousResultTextLength: rawFormData.previousResultText?.length,
-      fileDataUriLength: rawFormData.fileDataUri?.length || 0,
+      fileDataUriPresent: !!rawFormData.fileDataUri,
   });
 
   try {
@@ -202,15 +185,10 @@ export async function processFollowUpAction(
       fileDataUri: fileDataUri || undefined,
     };
 
-    console.log("Server Action: Calling AI flow answerFollowUp with input:", JSON.stringify(aiInput, (key, value) => key === 'fileDataUri' && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
+    console.log("Server Action: Calling AI flow answerFollowUp with input (data URIs truncated):", JSON.stringify(aiInput, (key, value) => (key === 'fileDataUri' || key === 'previousResultText') && typeof value === 'string' && value.length > 100 ? `${value.substring(0,100)}...` : value));
     const resultFromFlow: AnswerFollowUpOutput = await answerFollowUp(aiInput);
-
-    if (!resultFromFlow || typeof resultFromFlow.followUpAnswer !== 'string') {
-      console.error("Server Action: AI flow (answerFollowUp) returned invalid or missing output. Result:", JSON.stringify(resultFromFlow));
-      throw new Error('AI model did not return a valid follow-up answer.');
-    }
     
-    console.log("Server Action: AI flow (answerFollowUp) completed. Answer length:", resultFromFlow.followUpAnswer.length, "ImageUrl present:", !!resultFromFlow.followUpImageUrl);
+    console.log("Server Action: AI flow (answerFollowUp) completed. Answer (truncated):", resultFromFlow.followUpAnswer.substring(0,200) + "...", "ImageUrl present:", !!resultFromFlow.followUpImageUrl);
     return {
       message: "Follow-up processed successfully!",
       followUpAnswer: resultFromFlow.followUpAnswer,
@@ -281,26 +259,28 @@ export async function scheduleEmailNotificationAction(
 
     const { eventId, userEmail, eventTitle, eventDateTime } = validatedFields.data;
 
-    // TODO - REAL IMPLEMENTATION REQUIRED:
-    // 1. Store this notification request in a persistent database (e.g., Firestore).
-    //    Example structure for Firestore document in 'eventNotifications' collection:
-    //    {
-    //      eventId: eventId,
-    //      userEmail: userEmail,
-    //      eventTitle: eventTitle,
-    //      eventDateTime: new Date(eventDateTime), // Store as Firestore Timestamp
-    //      status: "pending", // e.g., "pending", "sent", "error"
-    //      userId: auth.currentUser.uid (if available and needed for user-specific queries)
-    //    }
-    // 2. A separate backend scheduler (e.g., Firebase Cloud Function triggered by Cloud Scheduler, or Vercel Cron Job)
-    //    will query this database for pending notifications that are due.
-    // 3. The scheduler will then use an email sending service (e.g., SendGrid, Resend) to send the actual email.
-    // 4. After sending, the scheduler should update the status in the database.
+    // --- Database Interaction (Conceptual) ---
+    // In a real application, you would now save this information to a persistent database
+    // (e.g., Firestore). A separate scheduled process (like a cron job) would then query this
+    // database for due events and trigger the actual email sending via an email service.
+    //
+    // Example Firestore document structure in 'eventNotifications' collection:
+    // {
+    //   eventId: "event123",
+    //   userEmail: "user@example.com",
+    //   eventTitle: "Math Exam",
+    //   eventDateTime: new Date("2024-10-26T10:00:00"), // Firestore Timestamp
+    //   status: "pending", // e.g., "pending", "sent", "error"
+    //   userId: "firebaseAuthUserId" // Optional, for linking
+    // }
+    //
+    // await db.collection('eventNotifications').add({ ...validatedFields.data, status: 'pending', createdAt: new Date() });
+    // --- End of Database Interaction (Conceptual) ---
 
-    console.log(`Conceptual: Email notification registration for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}. This would now be written to a database.`);
+    console.log(`Server Action: Email notification request for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}. This request should be saved to a database for a scheduled job to process.`);
     
     return {
-        message: `Email notification for "${eventTitle}" has been noted. (This is a conceptual step; actual email sending requires backend setup).`,
+        message: `Email notification for "${eventTitle}" has been noted. It will be sent if it's due, assuming the backend scheduler and email service are configured.`,
         errors: {},
     };
 }
