@@ -3,59 +3,53 @@ import { NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
 // IMPORTANT: Store your Resend API key in Vercel Environment Variables as RESEND_API_KEY
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resendApiKey = process.env.RESEND_API_KEY;
+let resend: Resend | null = null;
 
-export async function GET() {
-  // This endpoint should be secured if it's public, e.g., by checking a secret cron token.
-  // For Vercel Cron Jobs, you can set a CRON_SECRET environment variable
-  // and check it here:
+if (resendApiKey) {
+  try {
+    resend = new Resend(resendApiKey);
+    console.log("CRON JOB: Resend client initialized successfully.");
+  } catch (e) {
+    console.error("CRON JOB: Failed to initialize Resend client. Check RESEND_API_KEY.", e);
+  }
+} else {
+  console.error("CRON JOB: RESEND_API_KEY environment variable is not set.");
+}
+
+export async function GET(request: Request) { // Added request parameter for Vercel Cron Job best practices
+  // For Vercel Cron Jobs, you might want to secure this endpoint.
+  // Example: Check a secret passed in the header by the cron job configuration.
   // const cronSecret = request.headers.get('authorization')?.replace('Bearer ', '');
-  // if (cronSecret !== process.env.CRON_SECRET) {
+  // if (process.env.CRON_SECRET && cronSecret !== process.env.CRON_SECRET) {
+  //   console.warn("CRON JOB: Unauthorized access attempt to send-event-reminders.");
   //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   // }
 
   console.log("CRON JOB: /api/cron/send-event-reminders - API Route called.");
 
+  if (!resend) {
+    console.error("CRON JOB: Resend client not initialized. Cannot send email.");
+    return NextResponse.json({ error: 'Email service not configured properly on the server.' }, { status: 500 });
+  }
+
   try {
     // --- Database Query Logic (Placeholder) ---
     // In a real application, you would:
     // 1. Connect to your database (e.g., Firestore).
-    // 2. Query for events that are due for notification (e.g., eventDateTime is within the next X minutes
-    //    and status is 'pending').
-    //
-    // Example placeholder logic:
-    // const dueEvents = await getDueEventsFromDatabase();
-    //
-    // if (dueEvents.length === 0) {
-    //   console.log("CRON JOB: No due events found for notification.");
-    //   return NextResponse.json({ message: 'No due events to process.' });
-    // }
-    //
-    // for (const event of dueEvents) {
-    //   await resend.emails.send({
-    //     from: 'Study with Charles <notifications@yourverifieddomain.com>', // Replace with your verified Resend sending domain
-    //     to: event.userEmail,
-    //     subject: `Reminder: ${event.eventTitle}`,
-    //     html: `<p>Hi there,</p><p>This is a reminder for your event: <strong>${event.eventTitle}</strong> scheduled for ${new Date(event.eventDateTime).toLocaleString()}.</p><p>Best,</p><p>Study with Charles</p>`,
-    //   });
-    //   console.log(`CRON JOB: Email sent for event: ${event.eventTitle} to ${event.userEmail}`);
-    //   // Update event status in database to 'sent'
-    //   // await updateEventStatusInDatabase(event.id, 'sent');
-    // }
+    // 2. Query for events that are due for notification.
     // --- End of Database Query Logic (Placeholder) ---
 
-    // For demonstration, sending a sample email (REMOVE THIS IN PRODUCTION OR WHEN DB LOGIC IS ADDED)
-    // Replace 'delivered@resend.dev' with a test email address if you want to see this sample.
-    // Replace 'notifications@yourverifieddomain.com' with a domain you've verified with Resend.
+    console.log("CRON JOB: Attempting to send sample email via Resend.");
     const { data, error } = await resend.emails.send({
       from: 'Study with Charles <onboarding@resend.dev>', // Default Resend testing domain
-      to: ['delivered@resend.dev'], // Replace with your test email
+      to: ['delivered@resend.dev'], // Resend's test inbox
       subject: 'Test Event Reminder from Study with Charles (CRON)',
-      html: '<p>This is a test email from the Study with Charles cron job. If you see this, Resend is configured!</p>',
+      html: '<p>This is a test email from the Study with Charles cron job. If you see this, Resend is configured and the API route is working!</p>',
     });
 
     if (error) {
-      console.error("CRON JOB: Error sending sample email via Resend:", error);
+      console.error("CRON JOB: Error sending sample email via Resend:", JSON.stringify(error));
       return NextResponse.json({ error: 'Failed to send sample email.', details: error.message }, { status: 500 });
     }
 
