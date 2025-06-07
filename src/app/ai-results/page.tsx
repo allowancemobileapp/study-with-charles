@@ -7,11 +7,13 @@ import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface QAItem {
   Question: string | null | undefined;
@@ -53,9 +55,13 @@ export default function AiResultsPage() {
   const [selectedFollowUpFile, setSelectedFollowUpFile] = useState<File | null>(null);
   const followUpFileInputRef = useRef<HTMLInputElement>(null);
 
-
-  // Action state for follow-up questions
   const [followUpState, submitFollowUpAction, isSubmittingFollowUp] = useActionState(processFollowUpAction, initialFollowUpState);
+
+  // TTS State
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
 
   useEffect(() => {
     setCurrentDisplayResult(aiResult?.result || "");
@@ -146,7 +152,6 @@ export default function AiResultsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [generateMoreFormState]);
 
-  // Effect for handling follow-up action state
   useEffect(() => {
     if (followUpState) {
       if (followUpState.errors && Object.keys(followUpState.errors).length > 0) {
@@ -161,12 +166,13 @@ export default function AiResultsPage() {
           description: "Here's the response to your follow-up.",
           className: "bg-green-500/10 border-green-500",
         });
-        const newResultText = `${currentDisplayResult}\n\n---\n\n**Your Question:** ${previousFollowUpQuestionForDisplay}\n\n**Answer:**\n${followUpState.followUpAnswer}`;
+        const newResultText = `${currentDisplayResult}\n\n---\n\n**Your Question/File:** ${previousFollowUpQuestionForDisplay || (selectedFollowUpFile ? selectedFollowUpFile.name : "Attached File")}\n\n**Answer:**\n${followUpState.followUpAnswer}`;
         setAiResult({ result: newResultText, imageUrl: followUpState.followUpImageUrl || aiResult?.imageUrl }); 
         setFollowUpQuestion(""); 
         setPreviousFollowUpQuestionForDisplay("");
-        setSelectedFollowUpFile(null); // Clear selected file for follow-up
+        setSelectedFollowUpFile(null);
         setFollowUpFileDataUri(null);
+        if (followUpFileInputRef.current) followUpFileInputRef.current.value = "";
          if (!isSubscribed) {
           setShowVideoAd(true);
         }
@@ -180,6 +186,15 @@ export default function AiResultsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followUpState]);
 
+  // TTS Cleanup
+  useEffect(() => {
+    return () => {
+      if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
 
   const getFormattedContent = (forPlainTextDisplay = false): string => {
     if (!currentDisplayResult) return "";
@@ -187,9 +202,11 @@ export default function AiResultsPage() {
     if (lastAiInput?.desiredFormat === 'Question Answering' && isQAResult(currentDisplayResult)) {
       try {
         const parsed = JSON.parse(currentDisplayResult) as QAItem[];
-        return parsed.map((qa, index) =>
-            `Question:\n${String(qa.Question ?? 'N/A')}\n\nAnswer:\n${String(qa.Answer ?? 'N/A')}`
-          ).join('\n\n---\n\n');
+        if (forPlainTextDisplay) {
+            return parsed.map(qa => `Question: ${String(qa.Question ?? 'N/A')}\nAnswer: ${String(qa.Answer ?? 'N/A')}`).join('\n\n---\n\n');
+        }
+        // For rich display, this part is handled by renderContent directly
+        return currentDisplayResult; // Return raw JSON for renderContent
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
         if (typeof e === 'object' && e !== null && 'message' in e) {
@@ -339,11 +356,67 @@ export default function AiResultsPage() {
       formData.append('fileDataUri', followUpFileDataUri);
     }
 
-
     startFollowUpTransition(() => {
         submitFollowUpAction(formData);
     });
   };
+
+  const handleTTS = () => {
+    if (!('speechSynthesis' in window)) {
+      toast({ title: "TTS Not Supported", description: "Your browser does not support text-to-speech.", variant: "destructive" });
+      return;
+    }
+
+    if (isSpeaking) {
+      if (isPaused) { // Resume
+        speechSynthesis.resume();
+        setIsPaused(false);
+      } else { // Pause
+        speechSynthesis.pause();
+        setIsPaused(true);
+      }
+    } else { // Start speaking
+      const textToSpeak = getFormattedContent(true);
+      if (!textToSpeak.trim()) {
+        toast({ title: "Nothing to read", description: "There is no content to read aloud.", variant: "default" });
+        return;
+      }
+      
+      // Cancel any ongoing speech before starting new
+      if (speechSynthesis.speaking || speechSynthesis.pending) {
+        speechSynthesis.cancel();
+      }
+
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        setIsPaused(false);
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        utteranceRef.current = null;
+      };
+      utterance.onerror = (event) => {
+        console.error("Speech synthesis error:", event.error);
+        toast({ title: "TTS Error", description: `Could not play audio: ${event.error}`, variant: "destructive" });
+        setIsSpeaking(false);
+        setIsPaused(false);
+        utteranceRef.current = null;
+      };
+      utteranceRef.current = utterance;
+      speechSynthesis.speak(utterance);
+    }
+  };
+
+  const handleStopTTS = () => {
+     if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) {
+        speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+    setIsPaused(false);
+    utteranceRef.current = null;
+  }
 
 
   const renderContent = () => {
@@ -437,10 +510,10 @@ export default function AiResultsPage() {
 
   return (
     <div className="container mx-auto py-8 px-4 pb-36"> {/* Increased bottom padding for the fixed bar */}
-       <Button variant="outline" onClick={() => router.back()} className="mb-4 border-primary text-primary hover:bg-primary/10">
+       <Button variant="outline" onClick={() => { handleStopTTS(); router.back(); }} className="mb-4 border-primary text-primary hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-      <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm relative"> {/* Added relative for copy button positioning */}
+      <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm relative">
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
             <CardTitle className="text-3xl font-bold text-primary">
@@ -450,33 +523,61 @@ export default function AiResultsPage() {
               Here's the content processed by our AI based on your request.
             </CardDescription>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleCopy}
-            className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
-            aria-label="Copy result"
-            title="Copy result"
-          >
-            <Copy className="h-5 w-5" />
-          </Button>
+           <div className="flex items-center space-x-1">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                   <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleTTS}
+                    className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
+                    aria-label={isSpeaking && !isPaused ? "Pause reading" : "Read result aloud"}
+                    title={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
+                    disabled={isLoading}
+                  >
+                    {isSpeaking && !isPaused ? <PauseCircle className="h-5 w-5" /> : <PlayCircle className="h-5 w-5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleCopy}
+                            className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
+                            aria-label="Copy result"
+                            title="Copy result"
+                            disabled={isLoading}
+                        >
+                            <Copy className="h-5 w-5" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Copy result</p></TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+           </div>
         </CardHeader>
-        <CardContent> 
-            <div className="p-4 rounded-md"> 
-                {isLoadingMore ? (
-                    <div className="flex flex-col items-center justify-center min-h-[200px]"> 
-                        <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
-                        <p className="text-muted-foreground">Generating more Q&A...</p>
-                    </div>
-                ) : (
-                    renderContent()
-                )}
-                {aiResult?.imageUrl && (
-                    <div className="mt-6">
-                        <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
-                    </div>
-                )}
-            </div>
+        <CardContent className="p-4 rounded-md"> 
+            {isLoadingMore ? (
+                <div className="flex flex-col items-center justify-center min-h-[200px]"> 
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                    <p className="text-muted-foreground">Generating more Q&A...</p>
+                </div>
+            ) : (
+                renderContent()
+            )}
+            {aiResult?.imageUrl && (
+                <div className="mt-6">
+                    <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
+                </div>
+            )}
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
             {lastAiInput?.desiredFormat === 'Question Answering' && (
@@ -509,34 +610,60 @@ export default function AiResultsPage() {
             disabled={isSubmittingFollowUp}
             onKeyDown={(e) => e.key === 'Enter' && !isSubmittingFollowUp && (followUpQuestion.trim() || followUpFileDataUri) && handleFollowUpSubmit()}
           />
-           <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => followUpFileInputRef.current?.click()}
-            className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
-            aria-label="Attach file for follow-up"
-            title="Attach file for follow-up (Max 4MB)"
-            disabled={isSubmittingFollowUp}
-          >
-            <Paperclip className="h-5 w-5" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleDownload} title="Download Result" className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp}>
-            <Download className="h-5 w-5" />
-          </Button>
-          <Button variant="outline" size="icon" onClick={handleSchedule} title="Schedule Result" className="text-accent hover:bg-accent/10 border-accent" disabled={isSubmittingFollowUp}>
-            <CalendarPlus className="h-5 w-5" />
-          </Button>
-           <Button 
-            variant="default" 
-            size="icon" 
-            title="Send follow-up" 
-            className="bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={handleFollowUpSubmit}
-            disabled={isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)}
-            >
-            {isSubmittingFollowUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-          </Button>
+           <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => followUpFileInputRef.current?.click()}
+                        className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
+                        aria-label="Attach file for follow-up"
+                        disabled={isSubmittingFollowUp}
+                    >
+                        <Paperclip className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Attach file (Max 4MB)</p></TooltipContent>
+            </Tooltip>
+           </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={handleDownload} className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp}>
+                        <Download className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Download Result</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="outline" size="icon" onClick={handleSchedule} className="text-accent hover:bg-accent/10 border-accent" disabled={isSubmittingFollowUp}>
+                        <CalendarPlus className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Schedule Result</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+           <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button 
+                        variant="default" 
+                        size="icon" 
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        onClick={handleFollowUpSubmit}
+                        disabled={isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)}
+                        >
+                        {isSubmittingFollowUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Send follow-up</p></TooltipContent>
+            </Tooltip>
+           </TooltipProvider>
         </div>
       </div>
        {/* Hidden file input for follow-up */}
@@ -560,4 +687,5 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
     
