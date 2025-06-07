@@ -6,6 +6,8 @@ import NextImage from 'next/image'; // Renamed to avoid conflict with Genkit Ima
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, Image as ImageIcon, Wand2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -487,7 +489,7 @@ export default function AiResultsPage() {
       }
       
       if (speechSynthesis.speaking || speechSynthesis.pending) {
-        speechSynthesis.cancel();
+        speechSynthesis.cancel(); // This might cause an "interrupted" error, which is now handled.
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -512,8 +514,13 @@ export default function AiResultsPage() {
         utteranceRef.current = null;
       };
       utterance.onerror = (event) => {
-        console.error("Speech synthesis error:", event.error);
-        toast({ title: "TTS Error", description: `Could not play audio: ${event.error}`, variant: "destructive" });
+        if (event.error === 'interrupted') {
+          console.log("Speech synthesis was interrupted (event.error: interrupted). This is often normal (e.g., user stopped or started new speech).");
+          // Don't show a user-facing error toast for intentional interruptions.
+        } else {
+          console.error("Speech synthesis error:", event.error);
+          toast({ title: "TTS Error", description: `Could not play audio: ${event.error || 'Unknown TTS error'}`, variant: "destructive" });
+        }
         setIsSpeaking(false);
         setIsPaused(false);
         utteranceRef.current = null;
@@ -525,7 +532,7 @@ export default function AiResultsPage() {
 
   const handleStopTTS = () => {
      if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) {
-        speechSynthesis.cancel();
+        speechSynthesis.cancel();  // This will likely trigger utterance.onerror with "interrupted"
     }
     setIsSpeaking(false);
     setIsPaused(false);
