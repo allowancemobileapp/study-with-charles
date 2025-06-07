@@ -7,7 +7,7 @@ import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState } from '@/lib/actions';
@@ -61,11 +61,53 @@ export default function AiResultsPage() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(null);
 
 
   useEffect(() => {
     setCurrentDisplayResult(aiResult?.result || "");
   }, [aiResult]);
+
+  // Load and select TTS voices
+  useEffect(() => {
+    const populateVoiceList = () => {
+      if (typeof speechSynthesis === 'undefined') {
+        return;
+      }
+      const voices = speechSynthesis.getVoices();
+      setAvailableVoices(voices);
+      console.log("Available TTS voices:", voices.map(v => ({name: v.name, lang: v.lang, local: v.localService, default: v.default})));
+
+      if (voices.length > 0 && !selectedVoiceName) {
+        let preferredVoice = voices.find(voice => voice.lang === 'en-US' && voice.localService);
+        if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang === 'en-GB' && voice.localService);
+        if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang === 'en-US');
+        if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.localService);
+        if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang.startsWith('en-'));
+        if (!preferredVoice) preferredVoice = voices.find(voice => voice.default); // Fallback to default
+
+        if (preferredVoice) {
+          setSelectedVoiceName(preferredVoice.name);
+          console.log("Selected TTS Voice:", preferredVoice.name, "(Lang:", preferredVoice.lang, "Local:", preferredVoice.localService,")");
+        } else if (voices[0]) {
+           setSelectedVoiceName(voices[0].name); // Fallback to the first available voice
+           console.log("Fell back to first available TTS Voice:", voices[0].name);
+        }
+      }
+    };
+
+    populateVoiceList();
+    if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+      speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
+
+    return () => {
+      if (typeof speechSynthesis !== 'undefined') {
+        speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, [selectedVoiceName]);
 
 
   const isQAResult = (text: string): boolean => {
@@ -189,7 +231,7 @@ export default function AiResultsPage() {
   // TTS Cleanup
   useEffect(() => {
     return () => {
-      if (speechSynthesis.speaking) {
+      if (typeof speechSynthesis !== 'undefined' && speechSynthesis.speaking) {
         speechSynthesis.cancel();
       }
     };
@@ -205,8 +247,7 @@ export default function AiResultsPage() {
         if (forPlainTextDisplay) {
             return parsed.map(qa => `Question: ${String(qa.Question ?? 'N/A')}\nAnswer: ${String(qa.Answer ?? 'N/A')}`).join('\n\n---\n\n');
         }
-        // For rich display, this part is handled by renderContent directly
-        return currentDisplayResult; // Return raw JSON for renderContent
+        return currentDisplayResult; 
       } catch (e) {
         console.error("getFormattedContent: Could not parse Q&A JSON for formatting. Error:", e);
         if (typeof e === 'object' && e !== null && 'message' in e) {
@@ -382,12 +423,22 @@ export default function AiResultsPage() {
         return;
       }
       
-      // Cancel any ongoing speech before starting new
       if (speechSynthesis.speaking || speechSynthesis.pending) {
         speechSynthesis.cancel();
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      
+      const voiceToUse = availableVoices.find(v => v.name === selectedVoiceName);
+      if (voiceToUse) {
+        utterance.voice = voiceToUse;
+        console.log("Using voice for TTS:", voiceToUse.name);
+      } else {
+        console.warn("Selected voice not found, using browser default.");
+      }
+      utterance.rate = 0.9; // Slightly slower for clarity
+      utterance.pitch = 1; // Default pitch
+
       utterance.onstart = () => {
         setIsSpeaking(true);
         setIsPaused(false);
@@ -440,14 +491,14 @@ export default function AiResultsPage() {
       } catch (e) {
         console.error("Error parsing Q&A JSON in renderContent:", e, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
         return (
-             <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+             <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed p-4">
                 {currentDisplayResult}
              </div>
         );
       }
     }
     return (
-      <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed">
+      <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed p-4">
         {currentDisplayResult}
       </div>
     );
@@ -509,7 +560,7 @@ export default function AiResultsPage() {
 
 
   return (
-    <div className="container mx-auto py-8 px-4 pb-36"> {/* Increased bottom padding for the fixed bar */}
+    <div className="container mx-auto py-8 px-4 pb-36"> 
        <Button variant="outline" onClick={() => { handleStopTTS(); router.back(); }} className="mb-4 border-primary text-primary hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
@@ -532,11 +583,11 @@ export default function AiResultsPage() {
                     size="icon"
                     onClick={handleTTS}
                     className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
-                    aria-label={isSpeaking && !isPaused ? "Pause reading" : "Read result aloud"}
+                    aria-label={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
                     title={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
                     disabled={isLoading}
                   >
-                    {isSpeaking && !isPaused ? <PauseCircle className="h-5 w-5" /> : <PlayCircle className="h-5 w-5" />}
+                    {isSpeaking && !isPaused ? <PauseCircle className="h-5 w-5" /> : (isSpeaking && isPaused ? <PlayCircle className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />)}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -544,6 +595,25 @@ export default function AiResultsPage() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+             {isSpeaking && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleStopTTS}
+                            className="text-destructive hover:text-destructive/80 p-1 h-8 w-8"
+                            aria-label="Stop reading"
+                            title="Stop reading"
+                        >
+                            <StopCircle className="h-5 w-5" />
+                        </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Stop reading</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -564,7 +634,7 @@ export default function AiResultsPage() {
             </TooltipProvider>
            </div>
         </CardHeader>
-        <CardContent className="p-4 rounded-md"> 
+        <CardContent className="rounded-md"> 
             {isLoadingMore ? (
                 <div className="flex flex-col items-center justify-center min-h-[200px]"> 
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
@@ -574,7 +644,7 @@ export default function AiResultsPage() {
                 renderContent()
             )}
             {aiResult?.imageUrl && (
-                <div className="mt-6">
+                <div className="mt-6 p-4">
                     <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
                 </div>
             )}
@@ -598,7 +668,6 @@ export default function AiResultsPage() {
         </CardFooter>
       </Card>
 
-      {/* Stationary Follow-up Bar */}
       <div className="fixed bottom-4 left-0 right-0 z-20 flex justify-center px-4 pointer-events-none">
         <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input
@@ -666,7 +735,6 @@ export default function AiResultsPage() {
            </TooltipProvider>
         </div>
       </div>
-       {/* Hidden file input for follow-up */}
       <input
         id="follow-up-file-upload-hidden"
         ref={followUpFileInputRef}
@@ -687,5 +755,3 @@ export default function AiResultsPage() {
     </div>
   );
 }
-
-    
