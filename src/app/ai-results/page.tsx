@@ -2,19 +2,19 @@
 "use client";
 
 import React, { useEffect, useActionState, useState, useTransition, useRef } from 'react';
-import NextImage from 'next/image'; // Renamed to avoid conflict with Genkit Image
+import NextImage from 'next/image';
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, Image as ImageIcon, Wand2 } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, Image as ImageIcon, Wand2, MessageSquare } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState, generateImageAction, type GenerateImageFormState } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 interface QAItem {
@@ -78,6 +78,9 @@ export default function AiResultsPage() {
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(null);
 
+  // View Mode State
+  const [activeView, setActiveView] = useState<'text' | 'diagram'>('text');
+
 
   useEffect(() => {
     setCurrentDisplayResult(aiResult?.result || "");
@@ -91,7 +94,6 @@ export default function AiResultsPage() {
       }
       const voices = speechSynthesis.getVoices();
       setAvailableVoices(voices);
-      // console.log("Available TTS voices:", voices.map(v => ({name: v.name, lang: v.lang, local: v.localService, default: v.default})));
 
       if (voices.length > 0 && !selectedVoiceName) {
         let preferredVoice = voices.find(voice => voice.lang === 'en-US' && voice.localService);
@@ -99,14 +101,12 @@ export default function AiResultsPage() {
         if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang === 'en-US');
         if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang.startsWith('en-') && voice.localService);
         if (!preferredVoice) preferredVoice = voices.find(voice => voice.lang.startsWith('en-'));
-        if (!preferredVoice) preferredVoice = voices.find(voice => voice.default); // Fallback to default
+        if (!preferredVoice) preferredVoice = voices.find(voice => voice.default); 
 
         if (preferredVoice) {
           setSelectedVoiceName(preferredVoice.name);
-          // console.log("Selected TTS Voice:", preferredVoice.name, "(Lang:", preferredVoice.lang, "Local:", preferredVoice.localService,")");
         } else if (voices[0]) {
-           setSelectedVoiceName(voices[0].name); // Fallback to the first available voice
-           // console.log("Fell back to first available TTS Voice:", voices[0].name);
+           setSelectedVoiceName(voices[0].name);
         }
       }
     };
@@ -489,7 +489,7 @@ export default function AiResultsPage() {
       }
       
       if (speechSynthesis.speaking || speechSynthesis.pending) {
-        speechSynthesis.cancel(); // This might cause an "interrupted" error, which is now handled.
+        speechSynthesis.cancel();
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -497,9 +497,6 @@ export default function AiResultsPage() {
       const voiceToUse = availableVoices.find(v => v.name === selectedVoiceName);
       if (voiceToUse) {
         utterance.voice = voiceToUse;
-        // console.log("Using voice for TTS:", voiceToUse.name);
-      } else {
-        // console.warn("Selected voice not found, using browser default.");
       }
       utterance.rate = 0.9; 
       utterance.pitch = 1; 
@@ -515,8 +512,7 @@ export default function AiResultsPage() {
       };
       utterance.onerror = (event) => {
         if (event.error === 'interrupted') {
-          console.log("Speech synthesis was interrupted (event.error: interrupted). This is often normal (e.g., user stopped or started new speech).");
-          // Don't show a user-facing error toast for intentional interruptions.
+          console.log("Speech synthesis was interrupted (event.error: interrupted). This is often normal.");
         } else {
           console.error("Speech synthesis error:", event.error);
           toast({ title: "TTS Error", description: `Could not play audio: ${event.error || 'Unknown TTS error'}`, variant: "destructive" });
@@ -532,7 +528,7 @@ export default function AiResultsPage() {
 
   const handleStopTTS = () => {
      if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) {
-        speechSynthesis.cancel();  // This will likely trigger utterance.onerror with "interrupted"
+        speechSynthesis.cancel();
     }
     setIsSpeaking(false);
     setIsPaused(false);
@@ -540,7 +536,7 @@ export default function AiResultsPage() {
   }
 
 
-  const renderContent = () => {
+  const renderTextResultContent = () => {
     if (!currentDisplayResult) return <p className="text-muted-foreground">No result content to display.</p>;
 
     if (lastAiInput?.desiredFormat === 'Question Answering' && isQAResult(currentDisplayResult)) {
@@ -559,7 +555,7 @@ export default function AiResultsPage() {
           </div>
         );
       } catch (e) {
-        console.error("Error parsing Q&A JSON in renderContent:", e, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
+        console.error("Error parsing Q&A JSON in renderTextResultContent:", e, "\nProblematic JSON (first 200 chars):", currentDisplayResult.substring(0, 200) + (currentDisplayResult.length > 200 ? "..." : ""));
         return (
              <div className="whitespace-pre-wrap text-sm text-foreground leading-relaxed p-4">
                 {currentDisplayResult}
@@ -573,6 +569,48 @@ export default function AiResultsPage() {
       </div>
     );
   };
+
+  const renderDiagramGenerationContent = () => {
+    return (
+      <div className="space-y-4 p-4">
+        {isGeneratingImage && (
+          <div className="flex flex-col items-center justify-center min-h-[200px]">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
+            <p className="text-muted-foreground">Generating your image... this can take a moment.</p>
+          </div>
+        )}
+        
+        {imageGenerationState?.errors?.general && !isGeneratingImage && (
+           <Alert variant="destructive" className="mt-4">
+              <AlertTriangle className="h-4 w-4"/>
+              <AlertTitle>Image Generation Error</AlertTitle>
+              <AlertDescription>{imageGenerationState.errors.general.join(' ')}</AlertDescription>
+          </Alert>
+        )}
+
+        {generatedDiagramUrl && !isGeneratingImage && (
+          <div className="mt-6 p-4 border-t border-border/30 rounded-md bg-secondary/20">
+            <h3 className="text-lg font-semibold text-foreground mb-3">Generated Image:</h3>
+            <NextImage
+              src={generatedDiagramUrl}
+              alt="AI Generated Diagram/Image"
+              width={512}
+              height={512}
+              className="rounded-md shadow-lg mx-auto border border-border"
+              data-ai-hint="diagram illustration"
+            />
+          </div>
+        )}
+         {!generatedDiagramUrl && !isGeneratingImage && !imageGenerationState?.errors?.general && (
+           <div className="flex flex-col items-center justify-center min-h-[100px] text-muted-foreground">
+              <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
+              <p>Your generated image will appear here.</p>
+           </div>
+         )}
+      </div>
+    );
+  };
+
 
   if (!aiResult && !isGeneratingMore && !isSubmittingFollowUp && !isGeneratingImage) {
     return (
@@ -628,8 +666,9 @@ export default function AiResultsPage() {
      )
   }
 
-  const isLoadingMore = isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null));
-  const isLoading = isLoadingMore || isSubmittingFollowUp || isGeneratingImage;
+  const isLoadingFromState = isGeneratingMore || isSubmittingFollowUp || isGeneratingImage;
+  const isLoadingTextResults = activeView === 'text' && (isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)));
+  const isLoadingDiagrams = activeView === 'diagram' && isGeneratingImage;
 
 
   return (
@@ -642,11 +681,12 @@ export default function AiResultsPage() {
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm relative">
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
-            <CardTitle className="text-3xl font-bold text-primary">
-              Study Results...
+            <CardTitle className="text-3xl font-bold text-primary flex items-center">
+              {activeView === 'text' ? <MessageSquare className="mr-3 h-7 w-7" /> : <ImageIcon className="mr-3 h-7 w-7" />}
+              {activeView === 'text' ? 'Study Results...' : 'Generate Diagram...'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Here's the content processed by our AI.
+              {activeView === 'text' ? "Here's the content processed by our AI." : "Generate an image based on your prompt."}
             </CardDescription>
           </div>
            <div className="flex items-center space-x-1">
@@ -660,7 +700,7 @@ export default function AiResultsPage() {
                     className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
                     aria-label={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
                     title={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
-                    disabled={isLoading}
+                    disabled={isLoadingFromState || activeView === 'diagram'}
                   >
                     {isSpeaking && !isPaused ? <PauseCircle className="h-5 w-5" /> : (isSpeaking && isPaused ? <PlayCircle className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />)}
                   </Button>
@@ -681,6 +721,7 @@ export default function AiResultsPage() {
                             className="text-destructive hover:text-destructive/80 p-1 h-8 w-8"
                             aria-label="Stop reading"
                             title="Stop reading"
+                            disabled={activeView === 'diagram'}
                         >
                             <StopCircle className="h-5 w-5" />
                         </Button>
@@ -699,7 +740,7 @@ export default function AiResultsPage() {
                             className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
                             aria-label="Copy result"
                             title="Copy result"
-                            disabled={isLoading}
+                            disabled={isLoadingFromState || activeView === 'diagram'}
                         >
                             <Copy className="h-5 w-5" />
                         </Button>
@@ -709,30 +750,44 @@ export default function AiResultsPage() {
             </TooltipProvider>
            </div>
         </CardHeader>
+
+        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'text' | 'diagram')} className="w-full px-6">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="text">Text Results</TabsTrigger>
+                <TabsTrigger value="diagram">Diagram Generation</TabsTrigger>
+            </TabsList>
+        </Tabs>
+
         <CardContent className="rounded-md min-h-[200px]"> 
-            {isLoadingMore ? (
-                <div className="flex flex-col items-center justify-center h-full"> 
-                    <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
-                    <p className="text-muted-foreground">Generating more Q&A...</p>
-                </div>
-            ) : (
-              <div className="p-1">{renderContent()}</div>
+            {activeView === 'text' && (
+                isLoadingTextResults ? (
+                    <div className="flex flex-col items-center justify-center h-full"> 
+                        <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                        <p className="text-muted-foreground">Generating more Q&A...</p>
+                    </div>
+                ) : (
+                  <>
+                    <div className="p-1">{renderTextResultContent()}</div>
+                    {aiResult?.imageUrl && (
+                        <div className="mt-6 p-4 border-t border-border/30">
+                            <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration" />
+                        </div>
+                    )}
+                  </>
+                )
             )}
-            {aiResult?.imageUrl && (
-                <div className="mt-6 p-4 border-t border-border/30">
-                    <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration" />
-                </div>
-            )}
+            {activeView === 'diagram' && renderDiagramGenerationContent()}
         </CardContent>
-        {lastAiInput?.desiredFormat === 'Question Answering' && (
+
+        {activeView === 'text' && lastAiInput?.desiredFormat === 'Question Answering' && (
           <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
               <Button
                 onClick={handleGenerateMore}
-                disabled={isLoading}
+                disabled={isLoadingFromState}
                 variant="outline"
                 className="flex-grow sm:flex-grow-0 border-accent text-accent hover:bg-accent/10"
               >
-                {isLoadingMore ? (
+                {isGeneratingMore ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <RefreshCw className="mr-2 h-4 w-4" />
@@ -743,88 +798,25 @@ export default function AiResultsPage() {
         )}
       </Card>
 
-      {/* Image Generation / Diagrams Card */}
-      <Card className="w-full max-w-3xl mx-auto shadow-2xl border-primary/30 bg-card/80 backdrop-blur-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold text-primary flex items-center">
-            <ImageIcon className="mr-3 h-6 w-6" /> Diagrams / Image Generation
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Type a prompt to generate a new image or diagram.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="image-prompt" className="text-foreground">Image Prompt</Label>
-            <Textarea
-              id="image-prompt"
-              placeholder="e.g., A futuristic cityscape at dawn, A diagram of the human heart"
-              value={imagePrompt}
-              onChange={(e) => setImagePrompt(e.target.value)}
-              className="focus-visible:ring-primary"
-              rows={3}
-              disabled={isGeneratingImage}
-            />
-             {imageGenerationState?.errors?.prompt && <p className="text-sm text-destructive mt-1">{imageGenerationState.errors.prompt.join(', ')}</p>}
-          </div>
-          <Button onClick={handleGenerateImage} disabled={isGeneratingImage || !imagePrompt.trim()} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
-            {isGeneratingImage ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Wand2 className="mr-2 h-4 w-4" />
-            )}
-            Generate Image
-          </Button>
-
-          {isGeneratingImage && (
-            <div className="flex flex-col items-center justify-center min-h-[200px] p-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
-              <p className="text-muted-foreground">Generating your image... this can take a moment.</p>
-            </div>
-          )}
-          
-          {imageGenerationState?.errors?.general && !isGeneratingImage &&(
-             <Alert variant="destructive" className="mt-4">
-                <AlertTriangle className="h-4 w-4"/>
-                <AlertTitle>Image Generation Error</AlertTitle>
-                <AlertDescription>{imageGenerationState.errors.general.join(' ')}</AlertDescription>
-            </Alert>
-          )}
-
-          {generatedDiagramUrl && !isGeneratingImage && (
-            <div className="mt-6 p-4 border-t border-border/30 rounded-md bg-secondary/20">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Generated Image:</h3>
-              <NextImage
-                src={generatedDiagramUrl}
-                alt="AI Generated Diagram/Image"
-                width={512}
-                height={512}
-                className="rounded-md shadow-lg mx-auto border border-border"
-                data-ai-hint="diagram illustration"
-              />
-            </div>
-          )}
-           {!generatedDiagramUrl && !isGeneratingImage && !imageGenerationState?.errors?.general && (
-             <div className="flex flex-col items-center justify-center min-h-[100px] p-4 text-muted-foreground">
-                <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
-                <p>Your generated image will appear here.</p>
-             </div>
-           )}
-        </CardContent>
-      </Card>
-
-
-      {/* Follow-up Bar */}
+      {/* Shared Input Bar */}
       <div className="fixed bottom-4 left-0 right-0 z-20 flex justify-center px-4 pointer-events-none">
         <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input
             type="text"
-            placeholder="Ask a follow-up question or attach a file..."
-            value={followUpQuestion}
-            onChange={(e) => setFollowUpQuestion(e.target.value)}
+            placeholder={activeView === 'text' ? "Ask a follow-up question or attach a file..." : "Enter prompt for image generation..."}
+            value={activeView === 'text' ? followUpQuestion : imagePrompt}
+            onChange={(e) => activeView === 'text' ? setFollowUpQuestion(e.target.value) : setImagePrompt(e.target.value)}
             className="flex-grow focus-visible:ring-primary"
-            disabled={isSubmittingFollowUp}
-            onKeyDown={(e) => e.key === 'Enter' && !isSubmittingFollowUp && (followUpQuestion.trim() || followUpFileDataUri) && handleFollowUpSubmit()}
+            disabled={isSubmittingFollowUp || isGeneratingImage}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                if (activeView === 'text' && !isSubmittingFollowUp && (followUpQuestion.trim() || followUpFileDataUri)) {
+                  handleFollowUpSubmit();
+                } else if (activeView === 'diagram' && !isGeneratingImage && imagePrompt.trim()) {
+                  handleGenerateImage();
+                }
+              }
+            }}
           />
            <TooltipProvider>
             <Tooltip>
@@ -836,7 +828,7 @@ export default function AiResultsPage() {
                         onClick={() => followUpFileInputRef.current?.click()}
                         className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
                         aria-label="Attach file for follow-up"
-                        disabled={isSubmittingFollowUp}
+                        disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagram'}
                     >
                         <Paperclip className="h-5 w-5" />
                     </Button>
@@ -847,7 +839,7 @@ export default function AiResultsPage() {
           <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleDownload} className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp}>
+                    <Button variant="outline" size="icon" onClick={handleDownload} className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagram'}>
                         <Download className="h-5 w-5" />
                     </Button>
                 </TooltipTrigger>
@@ -857,7 +849,7 @@ export default function AiResultsPage() {
           <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleSchedule} className="text-accent hover:bg-accent/10 border-accent" disabled={isSubmittingFollowUp}>
+                    <Button variant="outline" size="icon" onClick={handleSchedule} className="text-accent hover:bg-accent/10 border-accent" disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagram'}>
                         <CalendarPlus className="h-5 w-5" />
                     </Button>
                 </TooltipTrigger>
@@ -871,13 +863,16 @@ export default function AiResultsPage() {
                         variant="default" 
                         size="icon" 
                         className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={handleFollowUpSubmit}
-                        disabled={isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)}
+                        onClick={activeView === 'text' ? handleFollowUpSubmit : handleGenerateImage}
+                        disabled={
+                            activeView === 'text' ? (isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)) : 
+                            (isGeneratingImage || !imagePrompt.trim())
+                        }
                         >
-                        {isSubmittingFollowUp ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                        {(isSubmittingFollowUp || isGeneratingImage) ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                     </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Send follow-up</p></TooltipContent>
+                <TooltipContent><p>{activeView === 'text' ? 'Send follow-up' : 'Generate Image'}</p></TooltipContent>
             </Tooltip>
            </TooltipProvider>
         </div>
@@ -890,7 +885,7 @@ export default function AiResultsPage() {
         onChange={handleFollowUpFileChange}
         className="hidden"
       />
-      {selectedFollowUpFile && (
+      {selectedFollowUpFile && activeView === 'text' && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 bg-secondary/90 text-sm text-muted-foreground p-2 rounded-md border shadow-md flex items-center gap-2 max-w-xs pointer-events-auto">
           <FileText className="mr-1 h-4 w-4 text-primary shrink-0" />
           <span className="truncate" title={selectedFollowUpFile.name}>{selectedFollowUpFile.name}</span>
@@ -902,3 +897,5 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
+    
