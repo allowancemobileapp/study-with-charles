@@ -2,15 +2,15 @@
 "use client";
 
 import React, { useEffect, useActionState, useState, useTransition, useRef } from 'react';
-import Image from 'next/image';
+import NextImage from 'next/image'; // Renamed to avoid conflict with Genkit Image
 import { useAppStore } from '@/lib/store';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, Image as ImageIcon, Wand2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
-import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState } from '@/lib/actions';
+import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState, generateImageAction, type GenerateImageFormState } from '@/lib/actions';
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -31,6 +31,12 @@ const initialFollowUpState: FollowUpFormState = {
   errors: {},
   followUpAnswer: null,
   followUpImageUrl: null,
+};
+
+const initialImageGenerationState: GenerateImageFormState = {
+  message: null,
+  errors: {},
+  imageUrl: null,
 };
 
 
@@ -57,6 +63,12 @@ export default function AiResultsPage() {
 
   const [followUpState, submitFollowUpAction, isSubmittingFollowUp] = useActionState(processFollowUpAction, initialFollowUpState);
 
+  // Image Generation State
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [generatedDiagramUrl, setGeneratedDiagramUrl] = useState<string | null>(null);
+  const [imageGenerationState, submitImageGenerationAction, isGeneratingImage] = useActionState(generateImageAction, initialImageGenerationState);
+
+
   // TTS State
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -77,7 +89,7 @@ export default function AiResultsPage() {
       }
       const voices = speechSynthesis.getVoices();
       setAvailableVoices(voices);
-      console.log("Available TTS voices:", voices.map(v => ({name: v.name, lang: v.lang, local: v.localService, default: v.default})));
+      // console.log("Available TTS voices:", voices.map(v => ({name: v.name, lang: v.lang, local: v.localService, default: v.default})));
 
       if (voices.length > 0 && !selectedVoiceName) {
         let preferredVoice = voices.find(voice => voice.lang === 'en-US' && voice.localService);
@@ -89,10 +101,10 @@ export default function AiResultsPage() {
 
         if (preferredVoice) {
           setSelectedVoiceName(preferredVoice.name);
-          console.log("Selected TTS Voice:", preferredVoice.name, "(Lang:", preferredVoice.lang, "Local:", preferredVoice.localService,")");
+          // console.log("Selected TTS Voice:", preferredVoice.name, "(Lang:", preferredVoice.lang, "Local:", preferredVoice.localService,")");
         } else if (voices[0]) {
            setSelectedVoiceName(voices[0].name); // Fallback to the first available voice
-           console.log("Fell back to first available TTS Voice:", voices[0].name);
+           // console.log("Fell back to first available TTS Voice:", voices[0].name);
         }
       }
     };
@@ -227,6 +239,37 @@ export default function AiResultsPage() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [followUpState]);
+
+  // Effect for Image Generation Action
+  useEffect(() => {
+    if (imageGenerationState) {
+      if (imageGenerationState.errors && Object.keys(imageGenerationState.errors).length > 0) {
+        toast({
+          title: "Image Generation Error",
+          description: imageGenerationState.message || "Could not generate image.",
+          variant: "destructive",
+        });
+        setGeneratedDiagramUrl(null);
+      } else if (imageGenerationState.imageUrl) {
+        toast({
+          title: "Image Generated!",
+          description: imageGenerationState.message || "Your image is ready.",
+          className: "bg-green-500/10 border-green-500",
+        });
+        setGeneratedDiagramUrl(imageGenerationState.imageUrl);
+        if (!isSubscribed) {
+          setShowVideoAd(true);
+        }
+      } else if (imageGenerationState.message) {
+        toast({
+          title: "Image Generation Info",
+          description: imageGenerationState.message,
+        });
+         setGeneratedDiagramUrl(null);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [imageGenerationState]);
 
   // TTS Cleanup
   useEffect(() => {
@@ -402,6 +445,26 @@ export default function AiResultsPage() {
     });
   };
 
+  const [, startImageGenerationTransition] = useTransition();
+  const handleGenerateImage = () => {
+    if (!isLoggedIn) {
+        toast({ title: "Please Sign In", description: "You need to be signed in to generate images.", variant: "destructive" });
+        return;
+    }
+    if (!imagePrompt.trim()) {
+        toast({ title: "Empty Prompt", description: "Please enter a prompt to generate an image.", variant: "destructive" });
+        return;
+    }
+    setGeneratedDiagramUrl(null); // Clear previous image
+
+    const formData = new FormData();
+    formData.append('prompt', imagePrompt.trim());
+    
+    startImageGenerationTransition(() => {
+        submitImageGenerationAction(formData);
+    });
+  };
+
   const handleTTS = () => {
     if (!('speechSynthesis' in window)) {
       toast({ title: "TTS Not Supported", description: "Your browser does not support text-to-speech.", variant: "destructive" });
@@ -432,12 +495,12 @@ export default function AiResultsPage() {
       const voiceToUse = availableVoices.find(v => v.name === selectedVoiceName);
       if (voiceToUse) {
         utterance.voice = voiceToUse;
-        console.log("Using voice for TTS:", voiceToUse.name);
+        // console.log("Using voice for TTS:", voiceToUse.name);
       } else {
-        console.warn("Selected voice not found, using browser default.");
+        // console.warn("Selected voice not found, using browser default.");
       }
-      utterance.rate = 0.9; // Slightly slower for clarity
-      utterance.pitch = 1; // Default pitch
+      utterance.rate = 0.9; 
+      utterance.pitch = 1; 
 
       utterance.onstart = () => {
         setIsSpeaking(true);
@@ -504,7 +567,7 @@ export default function AiResultsPage() {
     );
   };
 
-  if (!aiResult && !isGeneratingMore && !isSubmittingFollowUp) {
+  if (!aiResult && !isGeneratingMore && !isSubmittingFollowUp && !isGeneratingImage) {
     return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
         <Button variant="outline" onClick={() => router.back()} className="absolute top-20 left-4 sm:left-8 border-primary text-primary hover:bg-primary/10 self-start">
@@ -530,12 +593,15 @@ export default function AiResultsPage() {
 
   const generalActionError = 
     (generateMoreFormState?.errors?.general && !isGeneratingMore) || 
-    (followUpState?.errors?.general && !isSubmittingFollowUp);
+    (followUpState?.errors?.general && !isSubmittingFollowUp) ||
+    (imageGenerationState?.errors?.general && !isGeneratingImage);
+
 
   if (generalActionError) {
      const errorMessage = 
         (generateMoreFormState?.errors?.general?.join(' ')) ||
-        (followUpState?.errors?.general?.join(' ')) || "An unexpected error occurred.";
+        (followUpState?.errors?.general?.join(' ')) || 
+        (imageGenerationState?.errors?.general?.join(' ')) || "An unexpected error occurred.";
      return (
       <div className="container mx-auto py-8 px-4 flex flex-col items-center justify-center min-h-[calc(100vh-10rem)]">
          <Button variant="outline" onClick={() => router.back()} className="absolute top-20 left-4 sm:left-8 border-primary text-primary hover:bg-primary/10 self-start">
@@ -556,14 +622,16 @@ export default function AiResultsPage() {
   }
 
   const isLoadingMore = isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null));
-  const isLoading = isLoadingMore || isSubmittingFollowUp;
+  const isLoading = isLoadingMore || isSubmittingFollowUp || isGeneratingImage;
 
 
   return (
-    <div className="container mx-auto py-8 px-4 pb-36"> 
+    <div className="container mx-auto py-8 px-4 pb-36 space-y-8"> 
        <Button variant="outline" onClick={() => { handleStopTTS(); router.back(); }} className="mb-4 border-primary text-primary hover:bg-primary/10">
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
+      
+      {/* Main AI Result Card */}
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm relative">
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
@@ -571,7 +639,7 @@ export default function AiResultsPage() {
               Study Results...
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Here's the content processed by our AI based on your request.
+              Here's the content processed by our AI.
             </CardDescription>
           </div>
            <div className="flex items-center space-x-1">
@@ -634,23 +702,23 @@ export default function AiResultsPage() {
             </TooltipProvider>
            </div>
         </CardHeader>
-        <CardContent className="rounded-md"> 
+        <CardContent className="rounded-md min-h-[200px]"> 
             {isLoadingMore ? (
-                <div className="flex flex-col items-center justify-center min-h-[200px]"> 
+                <div className="flex flex-col items-center justify-center h-full"> 
                     <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                     <p className="text-muted-foreground">Generating more Q&A...</p>
                 </div>
             ) : (
-                renderContent()
+              <div className="p-1">{renderContent()}</div>
             )}
             {aiResult?.imageUrl && (
-                <div className="mt-6 p-4">
-                    <Image src={aiResult.imageUrl} alt="AI Generated Image" width={300} height={300} className="rounded-md shadow-md" data-ai-hint="abstract illustration" />
+                <div className="mt-6 p-4 border-t border-border/30">
+                    <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration" />
                 </div>
             )}
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
-            {lastAiInput?.desiredFormat === 'Question Answering' && (
+        {lastAiInput?.desiredFormat === 'Question Answering' && (
+          <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
               <Button
                 onClick={handleGenerateMore}
                 disabled={isLoading}
@@ -664,10 +732,82 @@ export default function AiResultsPage() {
                 )}
                 Generate More Q&amp;A
               </Button>
-            )}
-        </CardFooter>
+          </CardFooter>
+        )}
       </Card>
 
+      {/* Image Generation / Diagrams Card */}
+      <Card className="w-full max-w-3xl mx-auto shadow-2xl border-primary/30 bg-card/80 backdrop-blur-sm">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-primary flex items-center">
+            <ImageIcon className="mr-3 h-6 w-6" /> Diagrams / Image Generation
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Type a prompt to generate a new image or diagram.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="image-prompt" className="text-foreground">Image Prompt</Label>
+            <Textarea
+              id="image-prompt"
+              placeholder="e.g., A futuristic cityscape at dawn, A diagram of the human heart"
+              value={imagePrompt}
+              onChange={(e) => setImagePrompt(e.target.value)}
+              className="focus-visible:ring-primary"
+              rows={3}
+              disabled={isGeneratingImage}
+            />
+             {imageGenerationState?.errors?.prompt && <p className="text-sm text-destructive mt-1">{imageGenerationState.errors.prompt.join(', ')}</p>}
+          </div>
+          <Button onClick={handleGenerateImage} disabled={isGeneratingImage || !imagePrompt.trim()} className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground">
+            {isGeneratingImage ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="mr-2 h-4 w-4" />
+            )}
+            Generate Image
+          </Button>
+
+          {isGeneratingImage && (
+            <div className="flex flex-col items-center justify-center min-h-[200px] p-4">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-3" />
+              <p className="text-muted-foreground">Generating your image... this can take a moment.</p>
+            </div>
+          )}
+          
+          {imageGenerationState?.errors?.general && !isGeneratingImage &&(
+             <Alert variant="destructive" className="mt-4">
+                <AlertTriangle className="h-4 w-4"/>
+                <AlertTitle>Image Generation Error</AlertTitle>
+                <AlertDescription>{imageGenerationState.errors.general.join(' ')}</AlertDescription>
+            </Alert>
+          )}
+
+          {generatedDiagramUrl && !isGeneratingImage && (
+            <div className="mt-6 p-4 border-t border-border/30 rounded-md bg-secondary/20">
+              <h3 className="text-lg font-semibold text-foreground mb-3">Generated Image:</h3>
+              <NextImage
+                src={generatedDiagramUrl}
+                alt="AI Generated Diagram/Image"
+                width={512}
+                height={512}
+                className="rounded-md shadow-lg mx-auto border border-border"
+                data-ai-hint="diagram illustration"
+              />
+            </div>
+          )}
+           {!generatedDiagramUrl && !isGeneratingImage && !imageGenerationState?.errors?.general && (
+             <div className="flex flex-col items-center justify-center min-h-[100px] p-4 text-muted-foreground">
+                <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
+                <p>Your generated image will appear here.</p>
+             </div>
+           )}
+        </CardContent>
+      </Card>
+
+
+      {/* Follow-up Bar */}
       <div className="fixed bottom-4 left-0 right-0 z-20 flex justify-center px-4 pointer-events-none">
         <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input

@@ -3,6 +3,7 @@
 
 import { summarizeContent, type SummarizeContentInput, type SummarizeContentOutput } from "@/ai/flows/summarize-content";
 import { answerFollowUp, type AnswerFollowUpInput, type AnswerFollowUpOutput } from "@/ai/flows/answer-follow-up";
+import { generateImage, type GenerateImageInput, type GenerateImageOutput } from "@/ai/flows/generate-image-flow";
 import { z } from "zod";
 
 const AssignmentFormSchema = z.object({
@@ -97,6 +98,7 @@ export async function processAssignmentAction(
         console.error("Error Message:", error.message);
         if (error.stack) console.error("Error Stack:", error.stack);
         // Use a more generic message for the user
+        userFriendlyMessage = `AI Processing Error: ${error.message}`; // Make error more specific
     } else {
         console.error("Unknown error type caught in server action:", error);
     }
@@ -258,29 +260,78 @@ export async function scheduleEmailNotificationAction(
     }
 
     const { eventId, userEmail, eventTitle, eventDateTime } = validatedFields.data;
-
-    // --- Database Interaction (Conceptual) ---
-    // In a real application, you would now save this information to a persistent database
-    // (e.g., Firestore). A separate scheduled process (like a cron job) would then query this
-    // database for due events and trigger the actual email sending via an email service.
-    //
-    // Example Firestore document structure in 'eventNotifications' collection:
-    // {
-    //   eventId: "event123",
-    //   userEmail: "user@example.com",
-    //   eventTitle: "Math Exam",
-    //   eventDateTime: new Date("2024-10-26T10:00:00"), // Firestore Timestamp
-    //   status: "pending", // e.g., "pending", "sent", "error"
-    //   userId: "firebaseAuthUserId" // Optional, for linking
-    // }
-    //
-    // await db.collection('eventNotifications').add({ ...validatedFields.data, status: 'pending', createdAt: new Date() });
-    // --- End of Database Interaction (Conceptual) ---
-
-    console.log(`Server Action: Email notification request for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}. This request should be saved to a database for a scheduled job to process.`);
+    // In a real application, this is where you would save this information
+    // to a persistent database (e.g., Firestore) for a separate scheduled job
+    // to query and send emails.
+    console.log(`Server Action: Email notification request for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}. This request should be saved to a database.`);
     
     return {
-        message: `Email notification for "${eventTitle}" has been noted. It will be sent if it's due, assuming the backend scheduler and email service are configured.`,
+        message: `Conceptual: Email notification for "${eventTitle}" has been noted. (Actual email sending requires backend setup).`,
         errors: {},
     };
+}
+
+
+// Image Generation Action
+const GenerateImageFormSchema = z.object({
+  prompt: z.string().min(1, "Image prompt is required.").max(1000, "Prompt is too long."),
+});
+
+export type GenerateImageFormState = {
+  message?: string | null;
+  imageUrl?: string | null;
+  errors?: {
+    prompt?: string[];
+    general?: string[];
+  };
+};
+
+export async function generateImageAction(
+  _prevState: unknown,
+  formData: FormData
+): Promise<GenerateImageFormState> {
+  console.log("Server Action: generateImageAction initiated.");
+  const rawFormData = {
+    prompt: formData.get("prompt")?.toString(),
+  };
+
+  try {
+    const validatedFields = GenerateImageFormSchema.safeParse(rawFormData);
+    if (!validatedFields.success) {
+      const validationErrors = validatedFields.error.flatten().fieldErrors;
+      console.error("Server Action: Validation failed (generateImageAction).", validationErrors);
+      return {
+        errors: validationErrors,
+        message: "Invalid image prompt.",
+        imageUrl: null,
+      };
+    }
+
+    const { prompt } = validatedFields.data;
+    const aiInput: GenerateImageInput = { prompt };
+
+    console.log("Server Action: Calling AI flow generateImage with input:", aiInput);
+    const resultFromFlow: GenerateImageOutput = await generateImage(aiInput);
+    console.log("Server Action: AI flow (generateImage) completed. Image URL length:", resultFromFlow.imageUrl.length);
+
+    return {
+      message: "Image generated successfully!",
+      imageUrl: resultFromFlow.imageUrl,
+      errors: {},
+    };
+
+  } catch (error: unknown) {
+    let userFriendlyMessage = "Failed to generate image. Please try a different prompt or try again later.";
+    if (error instanceof Error) {
+      console.error("CRITICAL ERROR in generateImageAction (server):", error.name, error.message, error.stack);
+      userFriendlyMessage = `Image Generation Error: ${error.message}`;
+    } else {
+      console.error("CRITICAL ERROR in generateImageAction (server): Caught an unknown error type.", error);
+    }
+    return {
+      message: userFriendlyMessage,
+      imageUrl: null,
+      errors: { general: [userFriendlyMessage] },
+    };
+  }
 }
