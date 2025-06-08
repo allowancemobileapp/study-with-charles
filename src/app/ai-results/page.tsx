@@ -717,7 +717,7 @@ export default function AiResultsPage() {
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
             <CardTitle className="text-3xl font-bold text-primary">
-              {activeView === 'texts' ? 'Study Results...' : 'Generate Diagram...'}
+              {activeView === 'texts' ? 'Texts' : 'Diagrams'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               {activeView === 'texts' ? "Here's the content processed by our AI." : "Generate an image based on your prompt."}
@@ -790,30 +790,31 @@ export default function AiResultsPage() {
                 <TabsTrigger value="texts">Texts</TabsTrigger>
                 <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
             </TabsList>
+       
+            <CardContent className="rounded-md min-h-[200px] p-0"> {/* Adjusted padding here */}
+                <TabsContent value="texts" className="mt-0">
+                    {isLoadingTextResults ? (
+                        <div className="flex flex-col items-center justify-center h-full p-4"> {/* Added padding for loader */}
+                            <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
+                            <p className="text-muted-foreground">Generating more Q&A...</p>
+                        </div>
+                    ) : (
+                    <>
+                        <div className="p-4">{renderTextResultContent()}</div> {/* Added padding for text content */}
+                        {aiResult?.imageUrl && (
+                            <div className="mt-6 p-4 border-t border-border/30">
+                                <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration"/>
+                            </div>
+                        )}
+                    </>
+                    )}
+                </TabsContent>
+                <TabsContent value="diagrams" className="mt-0">
+                    {renderDiagramGenerationContent()} {/* Padding is handled within this function */}
+                </TabsContent>
+            </CardContent>
         </Tabs>
 
-        <CardContent className="rounded-md min-h-[200px]"> 
-            <TabsContent value="texts" className="mt-0">
-                {isLoadingTextResults ? (
-                    <div className="flex flex-col items-center justify-center h-full"> 
-                        <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
-                        <p className="text-muted-foreground">Generating more Q&A...</p>
-                    </div>
-                ) : (
-                  <>
-                    <div className="p-1">{renderTextResultContent()}</div>
-                    {aiResult?.imageUrl && (
-                        <div className="mt-6 p-4 border-t border-border/30">
-                            <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration"/>
-                        </div>
-                    )}
-                  </>
-                )}
-            </TabsContent>
-            <TabsContent value="diagrams" className="mt-0">
-                 {renderDiagramGenerationContent()}
-            </TabsContent>
-        </CardContent>
 
         {activeView === 'texts' && lastAiInput?.desiredFormat === 'Question Answering' && (
           <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
@@ -939,4 +940,3 @@ export default function AiResultsPage() {
     </div>
   );
 }
-
