@@ -5,6 +5,7 @@ import { summarizeContent, type SummarizeContentInput, type SummarizeContentOutp
 import { answerFollowUp, type AnswerFollowUpInput, type AnswerFollowUpOutput } from "@/ai/flows/answer-follow-up";
 import { generateImage, type GenerateImageInput, type GenerateImageOutput } from "@/ai/flows/generate-image-flow";
 import { z } from "zod";
+import { auth } from "@/lib/firebase"; // For getting user email
 
 const AssignmentFormSchema = z.object({
   fileDataUri: z.string().refine(val => val.startsWith('data:'), {
@@ -269,11 +270,18 @@ export async function scheduleEmailNotificationAction(
 
     const { eventId, userEmail, eventTitle, eventDateTime } = validatedFields.data;
     
-    console.log(`Server Action (scheduleEmailNotificationAction): Conceptual email notification request for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}.`);
-    console.log("Server Action (scheduleEmailNotificationAction): In a real application, this request should be saved to a persistent database (e.g., Firestore) for a separate scheduled job (e.g., cron job calling /api/cron/send-event-reminders) to query and send emails via a service like Resend.");
+    console.log(`Server Action (scheduleEmailNotificationAction): Conceptualizing email notification.`);
+    console.log(`  Event ID: ${eventId}`);
+    console.log(`  User Email: ${userEmail}`);
+    console.log(`  Event Title: "${eventTitle}"`);
+    console.log(`  Event DateTime: ${eventDateTime}`);
+    console.log("  Next Steps for REAL emails:");
+    console.log("  1. Save these details to a persistent database (e.g., Firestore).");
+    console.log("  2. A separate scheduled job (e.g., Vercel Cron /api/cron/send-event-reminders) should query this database.");
+    console.log("  3. The scheduled job would then use an email service (like Resend) to send actual emails for due events.");
     
     return {
-        message: `Conceptual: Email notification for "${eventTitle}" has been noted. (Actual email sending requires backend setup and database integration).`,
+        message: `Conceptual: Email notification for "${eventTitle}" has been noted. Actual email sending requires full backend setup (database & cron job).`,
         errors: {},
     };
 }
@@ -345,6 +353,119 @@ export async function generateImageAction(
       message: userFriendlyMessage,
       imageUrl: null,
       errors: { general: [userFriendlyMessage] },
+    };
+  }
+}
+
+
+// --- Paystack Integration ---
+const InitializePaystackSchema = z.object({
+  email: z.string().email("A valid email is required for payment."),
+  amount: z.number().positive("Amount must be positive."), // Amount in kobo
+  // Add other fields Paystack might need, like plan_code, metadata, etc.
+});
+
+export type InitializePaystackFormState = {
+  message: string | null;
+  authorizationUrl?: string | null;
+  errors?: {
+    email?: string[];
+    amount?: string[];
+    general?: string[];
+  };
+};
+
+export async function initializePaystackTransactionAction(
+  _prevState: unknown,
+  formData: FormData
+): Promise<InitializePaystackFormState> {
+  console.log("Server Action: initializePaystackTransactionAction initiated.");
+  
+  const userEmail = formData.get("email")?.toString();
+  const amountStr = formData.get("amount")?.toString(); // Amount will be passed in kobo
+
+  if (!userEmail) {
+    return { message: "User email is missing.", errors: { general: ["User email is missing."] } };
+  }
+  if (!amountStr || isNaN(parseInt(amountStr))) {
+     return { message: "Invalid amount.", errors: { amount: ["Invalid amount provided."] } };
+  }
+  
+  const amountInKobo = parseInt(amountStr);
+
+  const validatedFields = InitializePaystackSchema.safeParse({
+    email: userEmail,
+    amount: amountInKobo,
+  });
+
+  if (!validatedFields.success) {
+    console.error("Server Action (Paystack): Validation failed.", validatedFields.error.flatten().fieldErrors);
+    return {
+      message: "Invalid data for payment initialization.",
+      errors: validatedFields.error.flatten().fieldErrors,
+    };
+  }
+
+  const { email, amount } = validatedFields.data;
+  const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+
+  if (!paystackSecretKey) {
+    console.error("Server Action (Paystack): PAYSTACK_SECRET_KEY is not set in environment variables.");
+    return {
+      message: "Payment gateway is not configured on the server. Please contact support.",
+      errors: { general: ["Payment configuration error."] },
+    };
+  }
+
+  const paystackPayload = {
+    email: email,
+    amount: amount, // Amount in kobo
+    currency: "NGN", // Or your desired currency
+    // callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payment/callback`, // Your app's callback URL
+    // metadata: { userId: auth.currentUser?.uid, plan: "premium_monthly" }, // Example metadata
+    // You can add plan codes here if you are using Paystack Plans:
+    // plan: "YOUR_PLAN_CODE_FROM_PAYSTACK_DASHBOARD"
+  };
+
+  try {
+    console.log("Server Action (Paystack): Simulating call to Paystack Initialize Transaction with payload:", paystackPayload);
+    
+    // ** SIMULATED PAYSTACK API CALL **
+    // In a real application, you would use fetch or a library like axios to call Paystack's API:
+    // const response = await fetch("https://api.paystack.co/transaction/initialize", {
+    //   method: "POST",
+    //   headers: {
+    //     Authorization: `Bearer ${paystackSecretKey}`,
+    //     "Content-Type": "application/json",
+    //   },
+    //   body: JSON.stringify(paystackPayload),
+    // });
+    // const data = await response.json();
+    //
+    // if (!response.ok || !data.status || !data.data.authorization_url) {
+    //   console.error("Server Action (Paystack): Error initializing transaction with Paystack:", data);
+    //   return { message: data.message || "Failed to initialize payment.", errors: { general: [data.message || "Paystack API error."] } };
+    // }
+    // const authorizationUrl = data.data.authorization_url;
+    
+    // For simulation purposes:
+    const simulatedAuthorizationUrl = `https://checkout.paystack.com/simulated-payment-url-for-${email.split('@')[0]}`;
+    console.log("Server Action (Paystack): Simulated authorization URL:", simulatedAuthorizationUrl);
+
+    return {
+      message: "Payment initialization successful. Redirecting...",
+      authorizationUrl: simulatedAuthorizationUrl, // In real app: authorizationUrl
+    };
+
+  } catch (error) {
+    console.error("Server Action (Paystack): Error during payment initialization:", error);
+    let errorMessage = "Could not initialize payment.";
+    if (error instanceof Error) {
+        errorMessage = error.message;
+    }
+    return {
+      message: errorMessage,
+      errors: { general: [errorMessage] },
     };
   }
 }

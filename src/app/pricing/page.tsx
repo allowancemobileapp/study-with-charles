@@ -3,10 +3,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Zap, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle, Zap, ShieldCheck, XCircle, Loader2 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase"; // For checking if user is signed in
+import { auth } from "@/lib/firebase"; 
+import { initializePaystackTransactionAction, type InitializePaystackFormState } from "@/lib/actions";
+import { useActionState, useTransition, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
 
 const features = {
   free: [
@@ -24,29 +28,70 @@ const features = {
   ],
 };
 
+const initialPaystackState: InitializePaystackFormState = {
+    message: null,
+    authorizationUrl: null,
+    errors: {},
+};
+
 export default function PricingPage() {
   const { isSubscribed, setIsSubscribed } = useAppStore();
   const { toast } = useToast();
+  const router = useRouter();
 
-  const handleSubscribe = () => {
-    if (!auth.currentUser) { // Check Firebase auth state
-      toast({ title: "Please Sign In", description: "You need to be signed in to subscribe.", variant: "destructive" });
+  const [paystackFormState, paystackAction, isInitializingPayment] = useActionState(initializePaystackTransactionAction, initialPaystackState);
+  const [isPending, startTransition] = useTransition();
+
+  const handleSubscribe = async () => {
+    if (!auth.currentUser || !auth.currentUser.email) { 
+      toast({ title: "Please Sign In", description: "You need to be signed in with a valid email to subscribe.", variant: "destructive" });
       return;
     }
-    // Simulate subscription process - In a real app, this would involve Stripe/payment gateway.
-    // For a real implementation, you would initiate a Stripe Checkout session here.
-    // After successful payment, Stripe webhooks would update the user's subscription status
-    // (likely in a backend database like Firestore) and then update the Zustand store.
-    setIsSubscribed(true);
-    toast({
-      title: "Subscription Activated!",
-      description: "Welcome to Study with Charles Premium! (Simulated)",
-      className: "bg-green-500/10 border-green-500",
+    
+    // For Paystack, amount is in kobo. N1000 = 100000 kobo
+    const amountInKobo = 100000; 
+
+    const formData = new FormData();
+    formData.append('email', auth.currentUser.email);
+    formData.append('amount', amountInKobo.toString());
+    // You might add a plan_code or other metadata here if needed
+    // formData.append('plan_code', 'YOUR_PREMIUM_PLAN_CODE_FROM_PAYSTACK');
+
+    startTransition(() => {
+        paystackAction(formData);
     });
   };
   
+  useEffect(() => {
+    if (paystackFormState) {
+        if (paystackFormState.errors && Object.keys(paystackFormState.errors).length > 0) {
+            const errorMsg = paystackFormState.message || Object.values(paystackFormState.errors).flat().join(' ') || "Could not initiate payment.";
+            toast({
+                title: "Payment Error",
+                description: errorMsg,
+                variant: "destructive",
+            });
+        } else if (paystackFormState.authorizationUrl) {
+            toast({
+                title: "Redirecting to Paystack...",
+                description: paystackFormState.message || "Please complete your payment on the Paystack page.",
+                className: "bg-blue-500/10 border-blue-500",
+            });
+            // Redirect to Paystack's checkout page
+            window.location.href = paystackFormState.authorizationUrl;
+        } else if (paystackFormState.message) {
+             toast({
+                title: "Payment Info",
+                description: paystackFormState.message,
+            });
+        }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paystackFormState]);
+
+
   const handleCancelSubscription = () => {
-    // In a real app, this would involve calling your backend to cancel the Stripe subscription.
+    // In a real app, this would involve calling your backend to cancel the Stripe/Paystack subscription.
     setIsSubscribed(false);
     toast({
       title: "Subscription Cancelled",
@@ -123,8 +168,17 @@ export default function PricingPage() {
                 Cancel Subscription (Simulated)
               </Button>
             ) : (
-              <Button onClick={handleSubscribe} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Zap className="mr-2 h-4 w-4" /> Subscribe Now (Simulated)
+              <Button 
+                onClick={handleSubscribe} 
+                disabled={isInitializingPayment || isPending}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {isInitializingPayment || isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Zap className="mr-2 h-4 w-4" />
+                )}
+                {isInitializingPayment || isPending ? 'Processing...' : 'Subscribe Now (Paystack)'}
               </Button>
             )}
           </CardFooter>
@@ -134,9 +188,10 @@ export default function PricingPage() {
         All payments are processed securely. You can cancel your subscription at any time.
       </p>
        <p className="text-center text-muted-foreground mt-2 text-xs">
-        (Note: Payment and subscription system is currently simulated for demonstration.)
+        (Payment integration is currently using a Paystack simulation.)
       </p>
     </div>
   );
 }
 
+    

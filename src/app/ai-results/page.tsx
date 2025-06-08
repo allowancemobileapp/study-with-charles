@@ -395,7 +395,7 @@ export default function AiResultsPage() {
             const latestImageUrl = generatedDiagramUrls[generatedDiagramUrls.length - 1];
             const link = document.createElement('a');
             link.href = latestImageUrl;
-            link.download = `generated-diagram-${generatedDiagramUrls.length}.png`; // Or use a more descriptive name
+            link.download = `generated-diagram-${generatedDiagramUrls.length}.png`; 
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -522,7 +522,7 @@ export default function AiResultsPage() {
       }
       
       if (speechSynthesis.speaking || speechSynthesis.pending) {
-        speechSynthesis.cancel(); // Stop any ongoing or pending speech first
+        speechSynthesis.cancel(); 
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -564,9 +564,8 @@ export default function AiResultsPage() {
 
   const handleStopTTS = () => {
      if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) {
-        speechSynthesis.cancel(); // This will trigger utterance.onend or utterance.onerror with 'interrupted'
+        speechSynthesis.cancel(); 
     }
-    // State updates will happen in onend/onerror handlers for consistency
   }
 
 
@@ -717,7 +716,7 @@ export default function AiResultsPage() {
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
             <CardTitle className="text-3xl font-bold text-primary">
-              {activeView === 'texts' ? 'Texts' : 'Diagrams'}
+              Results...
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               {activeView === 'texts' ? "Here's the content processed by our AI." : "Generate an image based on your prompt."}
@@ -791,16 +790,16 @@ export default function AiResultsPage() {
                 <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
             </TabsList>
        
-            <CardContent className="rounded-md min-h-[200px] p-0"> {/* Adjusted padding here */}
+            <CardContent className="rounded-md min-h-[200px] p-0">
                 <TabsContent value="texts" className="mt-0">
                     {isLoadingTextResults ? (
-                        <div className="flex flex-col items-center justify-center h-full p-4"> {/* Added padding for loader */}
+                        <div className="flex flex-col items-center justify-center h-full p-4">
                             <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                             <p className="text-muted-foreground">Generating more Q&A...</p>
                         </div>
                     ) : (
                     <>
-                        <div className="p-4">{renderTextResultContent()}</div> {/* Added padding for text content */}
+                        <div className="p-4">{renderTextResultContent()}</div>
                         {aiResult?.imageUrl && (
                             <div className="mt-6 p-4 border-t border-border/30">
                                 <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration"/>
@@ -810,7 +809,7 @@ export default function AiResultsPage() {
                     )}
                 </TabsContent>
                 <TabsContent value="diagrams" className="mt-0">
-                    {renderDiagramGenerationContent()} {/* Padding is handled within this function */}
+                    {renderDiagramGenerationContent()}
                 </TabsContent>
             </CardContent>
         </Tabs>
@@ -940,3 +939,5 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
+    
