@@ -14,7 +14,7 @@ const AssignmentFormSchema = z.object({
   desiredFormat: z.enum(['Summary', 'Question Answering', 'Text', 'Explain']),
   userTextQuery: z.string().optional(),
 }).refine(data => {
-    const hasFileData = data.fileDataUri && data.fileDataUri.length > 'data:'.length; // Basic check if not empty
+    const hasFileData = data.fileDataUri && data.fileDataUri.length > 'data:'.length; 
     const hasTextQuery = data.userTextQuery && data.userTextQuery.trim().length > 0;
     return hasFileData || hasTextQuery;
   }, {
@@ -92,15 +92,18 @@ export async function processAssignmentAction(
   } catch (error: unknown) {
     let userFriendlyMessage = "AI processing failed. Please check your input or try again later.";
     
-    console.error("CRITICAL ERROR in processAssignmentAction (server): Caught an error during AI processing or data handling.");
+    console.error("CRITICAL ERROR in processAssignmentAction (server action): Caught an error. Details below.");
     if (error instanceof Error) {
         console.error("Error Name:", error.name);
         console.error("Error Message:", error.message);
         if (error.stack) console.error("Error Stack:", error.stack);
-        // Use a more generic message for the user
-        userFriendlyMessage = `AI Processing Error: ${error.message}`; // Make error more specific
+        userFriendlyMessage = `AI Processing Error: ${error.message}`;
+        const anyError = error as any;
+        if (anyError.details) console.error('Error Details (from action):', anyError.details);
+        if (anyError.status) console.error('Error Status (from action):', anyError.status);
+        if (anyError.cause) console.error('Error Cause (from action):', anyError.cause);
     } else {
-        console.error("Unknown error type caught in server action:", error);
+        console.error("Unknown error type caught in server action (processAssignmentAction):", error);
     }
     
     const errorState: AssignmentFormState = {
@@ -174,6 +177,7 @@ export async function processFollowUpAction(
         errors: validationErrors,
         message: "Invalid follow-up input. Please check your question or file.",
         followUpAnswer: null,
+        followUpImageUrl: null,
       };
     }
 
@@ -200,19 +204,23 @@ export async function processFollowUpAction(
 
   } catch (error: unknown) {
     let userFriendlyMessage = "Failed to process your follow-up question. Please try again.";
+    console.error("CRITICAL ERROR in processFollowUpAction (server action): Caught an error. Details below.");
      if (error instanceof Error) {
-        console.error("CRITICAL ERROR in processFollowUpAction (server):", error.name, error.message, error.stack);
-        if (error.message.includes("AI model did not return a valid")) {
-            userFriendlyMessage = "The AI returned an unexpected response to your follow-up. Please try rephrasing.";
-        } else {
-            userFriendlyMessage = `Follow-up Error: ${error.message}`;
-        }
+        console.error("Error Name:", error.name);
+        console.error("Error Message:", error.message);
+        if (error.stack) console.error("Error Stack:", error.stack);
+        userFriendlyMessage = `Follow-up Error: ${error.message}`;
+        const anyError = error as any;
+        if (anyError.details) console.error('Error Details (from action):', anyError.details);
+        if (anyError.status) console.error('Error Status (from action):', anyError.status);
+        if (anyError.cause) console.error('Error Cause (from action):', anyError.cause);
     } else {
-        console.error("CRITICAL ERROR in processFollowUpAction (server): Caught an unknown error type.", error);
+        console.error("CRITICAL ERROR in processFollowUpAction (server action): Caught an unknown error type.", error);
     }
     return {
       message: userFriendlyMessage,
       followUpAnswer: null,
+      followUpImageUrl: null,
       errors: { general: [userFriendlyMessage] },
     };
   }
@@ -260,19 +268,17 @@ export async function scheduleEmailNotificationAction(
     }
 
     const { eventId, userEmail, eventTitle, eventDateTime } = validatedFields.data;
-    // In a real application, this is where you would save this information
-    // to a persistent database (e.g., Firestore) for a separate scheduled job
-    // to query and send emails.
-    console.log(`Server Action: Email notification request for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}. This request should be saved to a database.`);
+    
+    console.log(`Server Action (scheduleEmailNotificationAction): Conceptual email notification request for event ID: ${eventId}, User: ${userEmail}, Title: "${eventTitle}", Time: ${eventDateTime}.`);
+    console.log("Server Action (scheduleEmailNotificationAction): In a real application, this request should be saved to a persistent database (e.g., Firestore) for a separate scheduled job (e.g., cron job calling /api/cron/send-event-reminders) to query and send emails via a service like Resend.");
     
     return {
-        message: `Conceptual: Email notification for "${eventTitle}" has been noted. (Actual email sending requires backend setup).`,
+        message: `Conceptual: Email notification for "${eventTitle}" has been noted. (Actual email sending requires backend setup and database integration).`,
         errors: {},
     };
 }
 
 
-// Image Generation Action
 const GenerateImageFormSchema = z.object({
   prompt: z.string().min(1, "Image prompt is required.").max(1000, "Prompt is too long."),
 });
@@ -312,7 +318,7 @@ export async function generateImageAction(
 
     console.log("Server Action: Calling AI flow generateImage with input:", aiInput);
     const resultFromFlow: GenerateImageOutput = await generateImage(aiInput);
-    console.log("Server Action: AI flow (generateImage) completed. Image URL length:", resultFromFlow.imageUrl.length);
+    console.log("Server Action: AI flow (generateImage) completed. Image URL length (first 100 chars):", resultFromFlow.imageUrl.substring(0,100) + "...");
 
     return {
       message: "Image generated successfully!",
@@ -322,11 +328,18 @@ export async function generateImageAction(
 
   } catch (error: unknown) {
     let userFriendlyMessage = "Failed to generate image. Please try a different prompt or try again later.";
+    console.error("CRITICAL ERROR in generateImageAction (server action): Caught an error. Details below.");
     if (error instanceof Error) {
-      console.error("CRITICAL ERROR in generateImageAction (server):", error.name, error.message, error.stack);
+      console.error("Error Name:", error.name);
+      console.error("Error Message:", error.message);
+      if (error.stack) console.error("Error Stack:", error.stack);
       userFriendlyMessage = `Image Generation Error: ${error.message}`;
+      const anyError = error as any;
+      if (anyError.details) console.error('Error Details (from action):', anyError.details);
+      if (anyError.status) console.error('Error Status (from action):', anyError.status);
+      if (anyError.cause) console.error('Error Cause (from action):', anyError.cause);
     } else {
-      console.error("CRITICAL ERROR in generateImageAction (server): Caught an unknown error type.", error);
+      console.error("CRITICAL ERROR in generateImageAction (server action): Caught an unknown error type.", error);
     }
     return {
       message: userFriendlyMessage,
@@ -335,3 +348,5 @@ export async function generateImageAction(
     };
   }
 }
+
+    

@@ -61,13 +61,13 @@ const summarizeContentFlow = ai.defineFlow(
         promptMessages.push({ media: { url: input.fileDataUri } });
 
         if (input.desiredFormat === 'Text') { // "Solve my Assignment"
-            mainInstruction = `Based on the user's query and the provided file, extract relevant text or solve any assignment questions implied by the query using information from the file. Present the solution as a well-structured document. Your entire output for this task should be a single block of text suitable for the 'result' field of a JSON object.`;
+            mainInstruction = `Based on the user's query and the provided file, extract relevant text or solve any assignment questions implied by the query using information from the file. Present the solution as a well-structured document. Your entire output for this task should be a single block of text that will be the value for the 'result' field of a JSON object.`;
         } else if (input.desiredFormat === 'Summary') {
-            mainInstruction = `Based on the user's query and the provided file, generate a concise summary that addresses the query using information from the file. Your entire output for this task should be a single block of text suitable for the 'result' field of a JSON object.`;
+            mainInstruction = `Based on the user's query and the provided file, generate a concise summary that addresses the query using information from the file. Your entire output for this task should be a single block of text that will be the value for the 'result' field of a JSON object.`;
         } else if (input.desiredFormat === 'Question Answering') {
              mainInstruction = `The user has a query: "${input.userTextQuery}". Based on this query AND the provided file, generate 3-5 distinct study questions and their corresponding concise answers relevant to both. The entire output for this task MUST be a single, valid JSON string representing an array of objects, each with "Question" and "Answer" string properties. Example: [{"Question": "Q1 from file related to query?", "Answer": "A1 based on file and query."}] Do NOT include any text, explanations, or markdown formatting outside of this JSON array string. This JSON array string itself will be the value for the 'result' field of the final JSON object.`;
         } else if (input.desiredFormat === 'Explain') {
-            mainInstruction = `Based on the user's query: "${input.userTextQuery}", and using the provided file as context, provide a detailed explanation. Focus on clarity, breaking down complex concepts if necessary, and covering the topic/question comprehensively. Your entire output for this task should be a single block of text suitable for the 'result' field of a JSON object.`;
+            mainInstruction = `Based on the user's query: "${input.userTextQuery}", and using the provided file as context, provide a detailed explanation. Focus on clarity, breaking down complex concepts if necessary, and covering the topic/question comprehensively. Your entire output for this task should be a single block of text that will be the value for the 'result' field of a JSON object.`;
         }
       } else { // Only userTextQuery
         promptMessages.push({ text: `Address the following text query/question from the user: "${input.userTextQuery}"` });
@@ -80,13 +80,13 @@ If the query appears to be an assignment question or problem that needs solving:
 - Use clear language and provide explanations or steps where appropriate.
 If the query does NOT appear to be an assignment question to solve:
 - Provide a comprehensive textual answer to the query.
-Your entire output for this task should be a single block of text suitable for the 'result' field of a JSON object.`;
+Your entire output for this task should be a single block of text that will be the value for the 'result' field of a JSON object.`;
         } else if (input.desiredFormat === 'Summary') {
-            mainInstruction = `Generate a concise summary for the user's query: "${input.userTextQuery}". Your entire output for this task should be a single block of text suitable for the 'result' field of a JSON object.`;
+            mainInstruction = `Generate a concise summary for the user's query: "${input.userTextQuery}". Your entire output for this task should be a single block of text that will be the value for the 'result' field of a JSON object.`;
         } else if (input.desiredFormat === 'Question Answering') {
             mainInstruction = `Based on the user's query: "${input.userTextQuery}", generate 3-5 distinct study questions and their corresponding concise answers. The entire output for this task MUST be a single, valid JSON string representing an array of objects, each with "Question" and "Answer" string properties. Example: [{"Question": "Related Q1?", "Answer": "Related A1."}] Do NOT include any text, explanations, or markdown formatting outside of this JSON array string. This JSON array string itself will be the value for the 'result' field of the final JSON object.`;
         } else if (input.desiredFormat === 'Explain') {
-            mainInstruction = `Based on the user's query: "${input.userTextQuery}", provide a detailed explanation. Focus on clarity, breaking down complex concepts if necessary, and covering the topic/question comprehensively. Your entire output for this task should be a single block of text suitable for the 'result' field of a JSON object.`;
+            mainInstruction = `Based on the user's query: "${input.userTextQuery}", provide a detailed explanation. Focus on clarity, breaking down complex concepts if necessary, and covering the topic/question comprehensively. Your entire output for this task should be a single block of text that will be the value for the 'result' field of a JSON object.`;
         }
       }
     } else if (input.fileDataUri) { // Only fileDataUri
@@ -178,11 +178,13 @@ Ensure the JSON syntax is perfect. This JSON array string itself will be the val
         if (anyError.details) console.error('Error Details:', anyError.details);
         if (anyError.status) console.error('Error Status:', anyError.status);
         if (anyError.cause) console.error('Error Cause:', anyError.cause);
-         throw new Error(errorMessage); // Re-throw a new simple error for the action to catch
       } else {
-        console.error('Unknown error type caught in AI Flow:', e);
-        throw new Error('An unknown error occurred in the AI flow processing.');
+        console.error('Unknown error type caught in AI Flow (summarizeContentFlow):', e);
+        errorMessage = 'An unknown error occurred in the AI flow processing.';
       }
+      throw new Error(errorMessage); 
     }
   }
 );
+
+    

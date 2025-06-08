@@ -73,14 +73,10 @@ const answerFollowUpFlow = ai.defineFlow(
         promptMessages.push({ text: `The student has provided a NEW FILE for this follow-up. Analyze this new file in the context of the PREVIOUS CONTEXT and provide relevant information, explanation, or answer implied questions from the new file.\nNEW FILE CONTENT:`});
         promptMessages.push({ media: { url: input.fileDataUri } });
     } else {
-        // This case should ideally be prevented by form validation, but handle defensively.
         promptMessages.push({ text: `The student has not provided a specific follow-up question or a new file. Please offer a brief, general continuation or clarification based on the PREVIOUS CONTEXT and the original desired format of "${input.desiredFormat}".` });
     }
     
     let mainInstruction = "";
-    // For all follow-ups, maintain a style consistent with the original desiredFormat.
-    // If the follow-up is a question, answer it. If it's a new file, analyze it.
-    // If the original format was 'Question Answering', follow-ups can be more direct answers.
     if (input.desiredFormat === 'Question Answering' && (input.followUpQuery || input.fileDataUri)) {
         mainInstruction = `Based on the PREVIOUS CONTEXT, the student's FOLLOW-UP (question and/or new file), provide a concise and direct answer or analysis. If the follow-up implies generating new Q&A from the new file, generate 1-2 new, distinct questions and their answers related to the new file and in line with the follow-up. The entire output for this task, if generating new Q&A, MUST be a single, valid JSON string representing an array of objects, each with "Question" and "Answer" string properties. Example: [{"Question": "Q1?", "Answer": "A1."}]. If simply answering or analyzing, provide a direct textual answer.`;
     } else { 
@@ -106,26 +102,41 @@ const answerFollowUpFlow = ai.defineFlow(
           ],
         },
       });
+      
+      console.log("AI Flow: answerFollowUpFlow - Raw response object from ai.generate():", JSON.stringify(response, null, 2).substring(0, 1000) + (JSON.stringify(response).length > 1000 ? "..." : ""));
 
       const output = response.output; 
+      console.log("AI Flow: answerFollowUpFlow - Extracted output field from response:", JSON.stringify(output, null, 2).substring(0,1000));
+
 
       if (!output || typeof output.followUpAnswer !== 'string') {
         const receivedOutputDetails = output ? JSON.stringify(output, null, 2) : 'null or undefined output field';
         console.error('AI Flow: answerFollowUpFlow - AI model returned invalid or missing output structure. Output.followUpAnswer was not a string. Output received:', receivedOutputDetails);
+        console.error('AI Flow: answerFollowUpFlow - Full response object for context:', JSON.stringify(response, null, 2));
         throw new Error('AI model did not return a valid follow-up answer. Expected a JSON object with a "followUpAnswer" string field.');
       }
       console.log("AI Flow: answerFollowUpFlow - Successfully received and parsed output. Answer length:", output.followUpAnswer.length, "ImageUrl present:", !!output.followUpImageUrl);
       return output;
 
     } catch (e: unknown) {
-      let errorMessage = 'AI flow failed during follow-up processing.';
+      console.error('CRITICAL ERROR in AI Flow (answerFollowUpFlow): Details below.');
+      let errorMessage = 'AI follow-up flow failed during processing.';
       if (e instanceof Error) {
-        console.error('CRITICAL ERROR in AI Flow (answerFollowUpFlow):', e.name, e.message, e.stack);
-        errorMessage = `AI follow-up failed: ${e.message}`;
+        console.error('Error Name:', e.name);
+        console.error('Error Message:', e.message);
+        if (e.stack) console.error('Error Stack:', e.stack);
+        errorMessage = `AI follow-up flow failed: ${e.message}`;
+        const anyError = e as any;
+        if (anyError.details) console.error('Error Details:', anyError.details);
+        if (anyError.status) console.error('Error Status:', anyError.status);
+        if (anyError.cause) console.error('Error Cause:', anyError.cause);
       } else {
-        console.error('CRITICAL ERROR in AI Flow (answerFollowUpFlow): Unknown error type caught:', e);
+        console.error('Unknown error type caught in AI Flow (answerFollowUpFlow):', e);
+        errorMessage = 'An unknown error occurred in the AI follow-up flow processing.';
       }
       throw new Error(errorMessage);
     }
   }
 );
+
+    
