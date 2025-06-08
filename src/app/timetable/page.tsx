@@ -270,7 +270,7 @@ function TimetableContent() {
     setRepeatType(event.repeat?.type || 'none');
     setSelectedWeeklyDays(event.repeat?.type === 'weekly' ? event.repeat.days || [] : []);
     setIsFormOpen(true);
-    setViewMode('list'); // Switch to list view when editing
+    // setViewMode('list'); // Switch to list view when editing, or keep current view if form is above
   };
 
   const handleDelete = (id: string) => {
@@ -318,7 +318,7 @@ function TimetableContent() {
     if (!isSameMonth(eventBaseDate, month) && event.repeat?.type === 'none') return [];
 
     const datesInMonth: Date[] = [];
-    const startOfMonthDate = startOfDay(month);
+    const startOfMonthDate = startOfDay(month); // Correct: get start of the *current displaying* month
     const endOfMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0);
 
     if (event.repeat?.type === 'none') {
@@ -326,22 +326,22 @@ function TimetableContent() {
         datesInMonth.push(eventBaseDate);
       }
     } else if (event.repeat?.type === 'daily') {
-      let currentDate = isSameMonth(eventBaseDate, month) ? eventBaseDate : startOfDay(new Date(month.getFullYear(), month.getMonth(), 1));
-      if (currentDate < eventBaseDate) currentDate = eventBaseDate;
-
+      // Start from the later of eventBaseDate or first day of current calendar month
+      let currentDate = eventBaseDate > startOfMonthDate ? eventBaseDate : startOfDay(new Date(month.getFullYear(), month.getMonth(), 1));
+      
       while (currentDate <= endOfMonth) {
-        if (currentDate >= eventBaseDate && isSameMonth(currentDate, month)) {
+        if (currentDate >= eventBaseDate && isSameMonth(currentDate, month)) { // Ensure we are within the displaying month
           datesInMonth.push(startOfDay(currentDate));
         }
         currentDate = addDays(currentDate, 1);
       }
     } else if (event.repeat?.type === 'weekly' && event.repeat.days && event.repeat.days.length > 0) {
       const repeatDaysNumbers = event.repeat.days.map(d => dayMapping[d]);
-      let currentDate = isSameMonth(eventBaseDate, month) ? eventBaseDate : startOfDay(new Date(month.getFullYear(), month.getMonth(), 1));
-       if (currentDate < eventBaseDate) currentDate = eventBaseDate;
+      // Start from the later of eventBaseDate or first day of current calendar month
+      let currentDate = eventBaseDate > startOfMonthDate ? eventBaseDate : startOfDay(new Date(month.getFullYear(), month.getMonth(), 1));
 
       while (currentDate <= endOfMonth) {
-        if (currentDate >= eventBaseDate && repeatDaysNumbers.includes(currentDate.getDay()) && isSameMonth(currentDate, month)) {
+        if (currentDate >= eventBaseDate && repeatDaysNumbers.includes(currentDate.getDay()) && isSameMonth(currentDate, month)) { // Ensure we are within the displaying month
           datesInMonth.push(startOfDay(currentDate));
         }
         currentDate = addDays(currentDate, 1);
@@ -363,7 +363,7 @@ function TimetableContent() {
   };
 
   const filteredEventsForSelectedDate = events.filter(event => {
-    if (!selectedCalendarDate) return true; // Show all if no date selected (should not happen if calendar is used)
+    if (!selectedCalendarDate) return false; // Only filter if a date is selected
     const selectedDayStart = startOfDay(selectedCalendarDate);
     const eventBaseDate = parseISO(event.date);
 
@@ -463,7 +463,7 @@ function TimetableContent() {
         .event-day-highlight {
           background-color: hsl(var(--accent) / 0.2);
           color: hsl(var(--accent-foreground));
-          border-radius: 0.375rem; /* Assuming rounded-md */
+          border-radius: 0.375rem; 
         }
         .rdp-day_selected.event-day-highlight, 
         .rdp-day_selected:focus.event-day-highlight, 
@@ -519,18 +519,17 @@ function TimetableContent() {
                 if (isFormOpen && !editingEvent) { 
                     resetForm();
                 } else if (isFormOpen && editingEvent) { 
-                    setIsFormOpen(false); 
+                    setIsFormOpen(false); // Keep editing event data if user just wants to close form
                 }
                 else { 
                     resetForm(); 
                     setIsFormOpen(true);
-                    setViewMode('list'); // Ensure form opens in list view
                 }
                 }}
                 variant="outline"
                 className="border-accent text-accent hover:bg-accent/10 hover:text-accent"
             >
-                <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen && !editingEvent ? "Close Form" : "Add New Event"}
+                <PlusCircle className="mr-2 h-4 w-4" /> {isFormOpen ? "Close Form" : "Add New Event"}
             </Button>
           </div>
         </CardHeader>
@@ -539,9 +538,7 @@ function TimetableContent() {
             Email notifications and event repeating are premium features.
         </CardDescription>
 
-        {(isFormOpen || viewMode === 'list') && (
-          <div className={viewMode === 'calendar' && !isFormOpen ? 'hidden' : ''}>
-            {isFormOpen && (
+        {isFormOpen && (
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-6 bg-secondary/30 p-6 rounded-lg border border-border">
                 <h3 className="text-xl font-semibold text-foreground mb-4">{editingEvent ? "Edit Event" : "Add New Event"}</h3>
@@ -659,7 +656,7 @@ function TimetableContent() {
                     </Label>
                 </div>
                 {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">A conceptual email notification will be logged for this event.</p>}
-                {isSubscribed && repeatType !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatType}{repeatType === 'weekly' && selectedWeeklyDays.length > 0 ? ` on ${selectedWeeklyDays.join(', ')}` : ''}. Actual repeat instances not shown.</p>}
+                {isSubscribed && repeatType !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatType}{repeatType === 'weekly' && selectedWeeklyDays.length > 0 ? ` on ${selectedWeeklyDays.join(', ')}` : ''}.</p>}
 
 
                 <div className="flex justify-end space-x-3">
@@ -670,35 +667,35 @@ function TimetableContent() {
                 </div>
                 </form>
             </CardContent>
-            )}
+        )}
 
-            <CardContent className="mt-6">
+        {viewMode === 'list' && (
+          <CardContent className={isFormOpen ? "mt-6" : "pt-6"}>
             {!isLoggedIn ? (
                 <p className="text-center text-muted-foreground py-8">Please sign in to view and manage your timetable.</p>
-            ) : (viewMode === 'list' && events.length === 0 && !isFormOpen) ? (
+            ) : (events.length === 0 && !isFormOpen) ? (
                 <div className="text-center py-8">
                 <ListChecks size={48} className="mx-auto text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">Your timetable is empty.</p>
                 <p className="text-sm text-muted-foreground">Click "Add New Event" to get started.</p>
                 </div>
-            ) : viewMode === 'list' && (
+            ) : (events.length > 0 && 
                 <div className="space-y-4">
                 {events.map((event, index) => renderEventCard(event, index))}
                 </div>
             )}
             </CardContent>
-          </div>
         )}
-
-        {viewMode === 'calendar' && !isFormOpen && (
-            <CardContent className="mt-6">
+        
+        {viewMode === 'calendar' && (
+            <CardContent className={isFormOpen ? "mt-6" : "pt-6"}>
                 <div className="flex justify-center">
                     <Calendar
                         mode="single"
                         selected={selectedCalendarDate}
                         onSelect={(date) => {
                             setSelectedCalendarDate(date);
-                            if (date) setCalendarMonth(date); // Update month if a date is selected
+                            if (date) setCalendarMonth(date); 
                         }}
                         month={calendarMonth}
                         onMonthChange={setCalendarMonth}
@@ -722,12 +719,14 @@ function TimetableContent() {
                         )}
                     </div>
                 )}
+                 {isLoggedIn && !selectedCalendarDate && (
+                    <p className="text-center text-muted-foreground mt-4">Select a date on the calendar to see events.</p>
+                )}
                 {!isLoggedIn && (
                      <p className="text-center text-muted-foreground py-8">Please sign in to view your timetable on the calendar.</p>
                 )}
             </CardContent>
         )}
-
 
       </Card>
 
@@ -778,5 +777,3 @@ function TimetableContent() {
     </div>
   );
 }
-
-    

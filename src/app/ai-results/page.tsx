@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, Image as ImageIcon, Wand2, MessageSquare } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, MessageSquare as MessageSquareIcon, Image as ImageIconLucide } from "lucide-react"; // Renamed to avoid conflict
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState, generateImageAction, type GenerateImageFormState } from '@/lib/actions';
@@ -497,6 +497,9 @@ export default function AiResultsPage() {
       const voiceToUse = availableVoices.find(v => v.name === selectedVoiceName);
       if (voiceToUse) {
         utterance.voice = voiceToUse;
+        console.log("TTS Using voice:", voiceToUse.name, "(Lang:", voiceToUse.lang, "Local:", voiceToUse.localService,")");
+      } else {
+        console.log("TTS Using default voice. Available voices:", availableVoices.map(v => ({name: v.name, lang: v.lang, local: v.localService})));
       }
       utterance.rate = 0.9; 
       utterance.pitch = 1; 
@@ -603,7 +606,7 @@ export default function AiResultsPage() {
         )}
          {!generatedDiagramUrl && !isGeneratingImage && !imageGenerationState?.errors?.general && (
            <div className="flex flex-col items-center justify-center min-h-[100px] text-muted-foreground">
-              <ImageIcon className="h-10 w-10 mb-2 opacity-50" />
+              <ImageIconLucide className="h-10 w-10 mb-2 opacity-50" />
               <p>Your generated image will appear here.</p>
            </div>
          )}
@@ -668,7 +671,6 @@ export default function AiResultsPage() {
 
   const isLoadingFromState = isGeneratingMore || isSubmittingFollowUp || isGeneratingImage;
   const isLoadingTextResults = activeView === 'text' && (isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)));
-  const isLoadingDiagrams = activeView === 'diagram' && isGeneratingImage;
 
 
   return (
@@ -677,12 +679,10 @@ export default function AiResultsPage() {
           <ArrowLeft className="mr-2 h-4 w-4" /> Back
         </Button>
       
-      {/* Main AI Result Card */}
       <Card className="w-full max-w-3xl mx-auto shadow-2xl border-accent/50 bg-card/80 backdrop-blur-sm relative">
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
-            <CardTitle className="text-3xl font-bold text-primary flex items-center">
-              {activeView === 'text' ? <MessageSquare className="mr-3 h-7 w-7" /> : <ImageIcon className="mr-3 h-7 w-7" />}
+            <CardTitle className="text-3xl font-bold text-primary">
               {activeView === 'text' ? 'Study Results...' : 'Generate Diagram...'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
@@ -798,7 +798,6 @@ export default function AiResultsPage() {
         )}
       </Card>
 
-      {/* Shared Input Bar */}
       <div className="fixed bottom-4 left-0 right-0 z-20 flex justify-center px-4 pointer-events-none">
         <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input
@@ -897,5 +896,3 @@ export default function AiResultsPage() {
     </div>
   );
 }
-
-    
