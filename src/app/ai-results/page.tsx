@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, ImageIcon as ImageIconLucide } from "lucide-react";
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, ImageIcon as ImageIconLucide, BookOpen } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState, generateImageAction, type GenerateImageFormState } from '@/lib/actions';
@@ -270,6 +270,7 @@ export default function AiResultsPage() {
           className: "bg-green-500/10 border-green-500",
         });
         setGeneratedDiagramUrls(prevUrls => [...prevUrls, imageGenerationState.imageUrl!]);
+        setImagePrompt(""); // Clear prompt after successful generation
         if (!isSubscribed) {
           setShowVideoAd(true);
         }
@@ -718,7 +719,13 @@ export default function AiResultsPage() {
             <CardTitle className="text-3xl font-bold text-primary">
               Results...
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
+            {lastAiInput?.subjectTitle && (
+              <p className="text-md text-muted-foreground mt-1 flex items-center">
+                <BookOpen className="mr-2 h-5 w-5 text-accent" />
+                Subject: <span className="font-semibold ml-1">{lastAiInput.subjectTitle}</span>
+              </p>
+            )}
+            <CardDescription className="text-muted-foreground mt-2">
               {activeView === 'texts' ? "Here's the content processed by our AI." : "Generate an image based on your prompt."}
             </CardDescription>
           </div>
@@ -941,3 +948,4 @@ export default function AiResultsPage() {
 }
 
     
+
