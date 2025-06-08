@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, MessageSquare as MessageSquareIcon, Image as ImageIconLucide } from "lucide-react"; // Renamed to avoid conflict
+import { Download, CalendarPlus, AlertTriangle, Copy, RefreshCw, Loader2, ArrowLeft, Send, Paperclip, X as XIcon, FileText, Volume2, PauseCircle, PlayCircle, StopCircle, ImageIcon as ImageIconLucide } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { useToast } from "@/hooks/use-toast";
 import { processAssignmentAction, type AssignmentFormState, processFollowUpAction, type FollowUpFormState, generateImageAction, type GenerateImageFormState } from '@/lib/actions';
@@ -67,7 +67,7 @@ export default function AiResultsPage() {
 
   // Image Generation State
   const [imagePrompt, setImagePrompt] = useState("");
-  const [generatedDiagramUrl, setGeneratedDiagramUrl] = useState<string | null>(null);
+  const [generatedDiagramUrls, setGeneratedDiagramUrls] = useState<string[]>([]); // Store multiple URLs
   const [imageGenerationState, submitImageGenerationAction, isGeneratingImage] = useActionState(generateImageAction, initialImageGenerationState);
 
 
@@ -79,7 +79,7 @@ export default function AiResultsPage() {
   const [selectedVoiceName, setSelectedVoiceName] = useState<string | null>(null);
 
   // View Mode State
-  const [activeView, setActiveView] = useState<'text' | 'diagram'>('text');
+  const [activeView, setActiveView] = useState<'texts' | 'diagrams'>('texts');
 
 
   useEffect(() => {
@@ -105,8 +105,12 @@ export default function AiResultsPage() {
 
         if (preferredVoice) {
           setSelectedVoiceName(preferredVoice.name);
+          console.log("TTS Preferred voice found and set:", preferredVoice.name);
         } else if (voices[0]) {
            setSelectedVoiceName(voices[0].name);
+           console.log("TTS Fallback voice set:", voices[0].name);
+        } else {
+          console.log("TTS No voices found to set.");
         }
       }
     };
@@ -114,14 +118,22 @@ export default function AiResultsPage() {
     populateVoiceList();
     if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
       speechSynthesis.onvoiceschanged = populateVoiceList;
+    } else if (typeof speechSynthesis !== 'undefined' && availableVoices.length === 0) {
+      // Fallback if onvoiceschanged is not supported but voices are available immediately
+      const voices = speechSynthesis.getVoices();
+       if (voices.length > 0) {
+         console.log("TTS: Populating voices directly as onvoiceschanged might not be supported or fired yet.");
+         populateVoiceList();
+       }
     }
+
 
     return () => {
       if (typeof speechSynthesis !== 'undefined') {
         speechSynthesis.onvoiceschanged = null;
       }
     };
-  }, [selectedVoiceName]);
+  }, [selectedVoiceName, availableVoices.length]);
 
 
   const isQAResult = (text: string): boolean => {
@@ -251,14 +263,13 @@ export default function AiResultsPage() {
           description: imageGenerationState.message || "Could not generate image.",
           variant: "destructive",
         });
-        setGeneratedDiagramUrl(null);
       } else if (imageGenerationState.imageUrl) {
         toast({
           title: "Image Generated!",
           description: imageGenerationState.message || "Your image is ready.",
           className: "bg-green-500/10 border-green-500",
         });
-        setGeneratedDiagramUrl(imageGenerationState.imageUrl);
+        setGeneratedDiagramUrls(prevUrls => [...prevUrls, imageGenerationState.imageUrl!]);
         if (!isSubscribed) {
           setShowVideoAd(true);
         }
@@ -267,7 +278,6 @@ export default function AiResultsPage() {
           title: "Image Generation Info",
           description: imageGenerationState.message,
         });
-         setGeneratedDiagramUrl(null);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -356,30 +366,54 @@ export default function AiResultsPage() {
   };
 
   const handleDownload = () => {
-    const contentToDownload = getFormattedContent(true);
-    if (contentToDownload) {
-      const blob = new Blob([contentToDownload], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'study-result.txt';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      toast({
-        title: "Download Started",
-        description: "Your result is being downloaded.",
-        className: "bg-blue-500/10 border-blue-500",
-      });
-    } else {
-      toast({
-        title: "Download Failed",
-        description: "No content to download.",
-        variant: "destructive",
-      });
+    if (activeView === 'texts') {
+        const contentToDownload = getFormattedContent(true);
+        if (contentToDownload) {
+          const blob = new Blob([contentToDownload], { type: 'text/plain;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = 'study-result.txt';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+          toast({
+            title: "Text Download Started",
+            description: "Your text result is being downloaded.",
+            className: "bg-blue-500/10 border-blue-500",
+          });
+        } else {
+          toast({
+            title: "Download Failed",
+            description: "No text content to download.",
+            variant: "destructive",
+          });
+        }
+    } else if (activeView === 'diagrams') {
+        if (generatedDiagramUrls.length > 0) {
+            const latestImageUrl = generatedDiagramUrls[generatedDiagramUrls.length - 1];
+            const link = document.createElement('a');
+            link.href = latestImageUrl;
+            link.download = `generated-diagram-${generatedDiagramUrls.length}.png`; // Or use a more descriptive name
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+             toast({
+                title: "Image Download Started",
+                description: "Your latest generated image is being downloaded.",
+                className: "bg-blue-500/10 border-blue-500",
+            });
+        } else {
+            toast({
+                title: "Download Failed",
+                description: "No image has been generated yet.",
+                variant: "destructive",
+            });
+        }
     }
   };
+
 
   const handleFollowUpFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -457,7 +491,6 @@ export default function AiResultsPage() {
         toast({ title: "Empty Prompt", description: "Please enter a prompt to generate an image.", variant: "destructive" });
         return;
     }
-    setGeneratedDiagramUrl(null); // Clear previous image
 
     const formData = new FormData();
     formData.append('prompt', imagePrompt.trim());
@@ -489,7 +522,7 @@ export default function AiResultsPage() {
       }
       
       if (speechSynthesis.speaking || speechSynthesis.pending) {
-        speechSynthesis.cancel();
+        speechSynthesis.cancel(); // Stop any ongoing or pending speech first
       }
 
       const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -515,7 +548,7 @@ export default function AiResultsPage() {
       };
       utterance.onerror = (event) => {
         if (event.error === 'interrupted') {
-          console.log("Speech synthesis was interrupted (event.error: interrupted). This is often normal.");
+          console.log("Speech synthesis was interrupted (event.error: interrupted). This is often normal (e.g., new speech started, component unmounted, or stop button pressed).");
         } else {
           console.error("Speech synthesis error:", event.error);
           toast({ title: "TTS Error", description: `Could not play audio: ${event.error || 'Unknown TTS error'}`, variant: "destructive" });
@@ -531,11 +564,9 @@ export default function AiResultsPage() {
 
   const handleStopTTS = () => {
      if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) {
-        speechSynthesis.cancel();
+        speechSynthesis.cancel(); // This will trigger utterance.onend or utterance.onerror with 'interrupted'
     }
-    setIsSpeaking(false);
-    setIsPaused(false);
-    utteranceRef.current = null;
+    // State updates will happen in onend/onerror handlers for consistency
   }
 
 
@@ -591,23 +622,26 @@ export default function AiResultsPage() {
           </Alert>
         )}
 
-        {generatedDiagramUrl && !isGeneratingImage && (
-          <div className="mt-6 p-4 border-t border-border/30 rounded-md bg-secondary/20">
-            <h3 className="text-lg font-semibold text-foreground mb-3">Generated Image:</h3>
-            <NextImage
-              src={generatedDiagramUrl}
-              alt="AI Generated Diagram/Image"
-              width={512}
-              height={512}
-              className="rounded-md shadow-lg mx-auto border border-border"
-              data-ai-hint="diagram illustration"
-            />
+        {generatedDiagramUrls.length > 0 && !isGeneratingImage && (
+          <div className="mt-6 p-4 border-t border-border/30 rounded-md bg-secondary/20 space-y-4">
+            <h3 className="text-lg font-semibold text-foreground mb-3">Generated Image(s):</h3>
+            {generatedDiagramUrls.map((url, index) => (
+                <NextImage
+                key={index}
+                src={url}
+                alt={`AI Generated Diagram/Image ${index + 1}`}
+                width={512}
+                height={512}
+                className="rounded-md shadow-lg mx-auto border border-border mb-4"
+                data-ai-hint="diagram illustration"
+                />
+            ))}
           </div>
         )}
-         {!generatedDiagramUrl && !isGeneratingImage && !imageGenerationState?.errors?.general && (
+         {generatedDiagramUrls.length === 0 && !isGeneratingImage && !imageGenerationState?.errors?.general && (
            <div className="flex flex-col items-center justify-center min-h-[100px] text-muted-foreground">
               <ImageIconLucide className="h-10 w-10 mb-2 opacity-50" />
-              <p>Your generated image will appear here.</p>
+              <p>Your generated images will appear here.</p>
            </div>
          )}
       </div>
@@ -670,7 +704,7 @@ export default function AiResultsPage() {
   }
 
   const isLoadingFromState = isGeneratingMore || isSubmittingFollowUp || isGeneratingImage;
-  const isLoadingTextResults = activeView === 'text' && (isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)));
+  const isLoadingTextResults = activeView === 'texts' && (isGeneratingMore && (!currentDisplayResult || (currentDisplayResult && isQAResult(currentDisplayResult) && generateMoreFormState.result === null)));
 
 
   return (
@@ -683,10 +717,10 @@ export default function AiResultsPage() {
         <CardHeader className="flex flex-row justify-between items-start">
           <div>
             <CardTitle className="text-3xl font-bold text-primary">
-              {activeView === 'text' ? 'Study Results...' : 'Generate Diagram...'}
+              {activeView === 'texts' ? 'Study Results...' : 'Generate Diagram...'}
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              {activeView === 'text' ? "Here's the content processed by our AI." : "Generate an image based on your prompt."}
+              {activeView === 'texts' ? "Here's the content processed by our AI." : "Generate an image based on your prompt."}
             </CardDescription>
           </div>
            <div className="flex items-center space-x-1">
@@ -700,7 +734,7 @@ export default function AiResultsPage() {
                     className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
                     aria-label={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
                     title={isSpeaking && !isPaused ? "Pause reading" : (isSpeaking && isPaused ? "Resume reading" : "Read result aloud")}
-                    disabled={isLoadingFromState || activeView === 'diagram'}
+                    disabled={isLoadingFromState || activeView === 'diagrams'}
                   >
                     {isSpeaking && !isPaused ? <PauseCircle className="h-5 w-5" /> : (isSpeaking && isPaused ? <PlayCircle className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />)}
                   </Button>
@@ -721,7 +755,7 @@ export default function AiResultsPage() {
                             className="text-destructive hover:text-destructive/80 p-1 h-8 w-8"
                             aria-label="Stop reading"
                             title="Stop reading"
-                            disabled={activeView === 'diagram'}
+                            disabled={activeView === 'diagrams'}
                         >
                             <StopCircle className="h-5 w-5" />
                         </Button>
@@ -740,7 +774,7 @@ export default function AiResultsPage() {
                             className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
                             aria-label="Copy result"
                             title="Copy result"
-                            disabled={isLoadingFromState || activeView === 'diagram'}
+                            disabled={isLoadingFromState || activeView === 'diagrams'}
                         >
                             <Copy className="h-5 w-5" />
                         </Button>
@@ -751,16 +785,16 @@ export default function AiResultsPage() {
            </div>
         </CardHeader>
 
-        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'text' | 'diagram')} className="w-full px-6">
+        <Tabs value={activeView} onValueChange={(value) => setActiveView(value as 'texts' | 'diagrams')} className="w-full px-6">
             <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="text">Text Results</TabsTrigger>
-                <TabsTrigger value="diagram">Diagram Generation</TabsTrigger>
+                <TabsTrigger value="texts">Texts</TabsTrigger>
+                <TabsTrigger value="diagrams">Diagrams</TabsTrigger>
             </TabsList>
         </Tabs>
 
         <CardContent className="rounded-md min-h-[200px]"> 
-            {activeView === 'text' && (
-                isLoadingTextResults ? (
+            <TabsContent value="texts" className="mt-0">
+                {isLoadingTextResults ? (
                     <div className="flex flex-col items-center justify-center h-full"> 
                         <Loader2 className="h-12 w-12 animate-spin text-primary mb-2" />
                         <p className="text-muted-foreground">Generating more Q&A...</p>
@@ -770,16 +804,18 @@ export default function AiResultsPage() {
                     <div className="p-1">{renderTextResultContent()}</div>
                     {aiResult?.imageUrl && (
                         <div className="mt-6 p-4 border-t border-border/30">
-                            <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration" />
+                            <NextImage src={aiResult.imageUrl} alt="AI Generated Content Image" width={300} height={300} className="rounded-md shadow-md mx-auto" data-ai-hint="abstract illustration"/>
                         </div>
                     )}
                   </>
-                )
-            )}
-            {activeView === 'diagram' && renderDiagramGenerationContent()}
+                )}
+            </TabsContent>
+            <TabsContent value="diagrams" className="mt-0">
+                 {renderDiagramGenerationContent()}
+            </TabsContent>
         </CardContent>
 
-        {activeView === 'text' && lastAiInput?.desiredFormat === 'Question Answering' && (
+        {activeView === 'texts' && lastAiInput?.desiredFormat === 'Question Answering' && (
           <CardFooter className="flex flex-col sm:flex-row justify-center items-center pt-6 space-y-3 sm:space-y-0">
               <Button
                 onClick={handleGenerateMore}
@@ -802,16 +838,16 @@ export default function AiResultsPage() {
         <div className="bg-card/95 border border-border/70 shadow-2xl p-3 backdrop-blur-sm rounded-xl flex items-center gap-2 w-full max-w-2xl pointer-events-auto">
           <Input
             type="text"
-            placeholder={activeView === 'text' ? "Ask a follow-up question or attach a file..." : "Enter prompt for image generation..."}
-            value={activeView === 'text' ? followUpQuestion : imagePrompt}
-            onChange={(e) => activeView === 'text' ? setFollowUpQuestion(e.target.value) : setImagePrompt(e.target.value)}
+            placeholder={activeView === 'texts' ? "Ask a follow-up question or attach a file..." : "Enter prompt for image generation..."}
+            value={activeView === 'texts' ? followUpQuestion : imagePrompt}
+            onChange={(e) => activeView === 'texts' ? setFollowUpQuestion(e.target.value) : setImagePrompt(e.target.value)}
             className="flex-grow focus-visible:ring-primary"
             disabled={isSubmittingFollowUp || isGeneratingImage}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                if (activeView === 'text' && !isSubmittingFollowUp && (followUpQuestion.trim() || followUpFileDataUri)) {
+                if (activeView === 'texts' && !isSubmittingFollowUp && (followUpQuestion.trim() || followUpFileDataUri)) {
                   handleFollowUpSubmit();
-                } else if (activeView === 'diagram' && !isGeneratingImage && imagePrompt.trim()) {
+                } else if (activeView === 'diagrams' && !isGeneratingImage && imagePrompt.trim()) {
                   handleGenerateImage();
                 }
               }
@@ -827,7 +863,7 @@ export default function AiResultsPage() {
                         onClick={() => followUpFileInputRef.current?.click()}
                         className="text-muted-foreground hover:text-primary p-1 h-8 w-8"
                         aria-label="Attach file for follow-up"
-                        disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagram'}
+                        disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagrams'}
                     >
                         <Paperclip className="h-5 w-5" />
                     </Button>
@@ -838,7 +874,12 @@ export default function AiResultsPage() {
           <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleDownload} className="text-primary hover:bg-primary/10 border-primary" disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagram'}>
+                    <Button variant="outline" size="icon" onClick={handleDownload} className="text-primary hover:bg-primary/10 border-primary" 
+                      disabled={
+                        (activeView === 'texts' && (!currentDisplayResult || isLoadingFromState)) ||
+                        (activeView === 'diagrams' && (generatedDiagramUrls.length === 0 || isLoadingFromState))
+                      }
+                    >
                         <Download className="h-5 w-5" />
                     </Button>
                 </TooltipTrigger>
@@ -848,7 +889,9 @@ export default function AiResultsPage() {
           <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={handleSchedule} className="text-accent hover:bg-accent/10 border-accent" disabled={isSubmittingFollowUp || isGeneratingImage || activeView === 'diagram'}>
+                    <Button variant="outline" size="icon" onClick={handleSchedule} className="text-accent hover:bg-accent/10 border-accent" 
+                      disabled={isLoadingFromState || activeView === 'diagrams'}
+                    >
                         <CalendarPlus className="h-5 w-5" />
                     </Button>
                 </TooltipTrigger>
@@ -862,16 +905,16 @@ export default function AiResultsPage() {
                         variant="default" 
                         size="icon" 
                         className="bg-primary text-primary-foreground hover:bg-primary/90"
-                        onClick={activeView === 'text' ? handleFollowUpSubmit : handleGenerateImage}
+                        onClick={activeView === 'texts' ? handleFollowUpSubmit : handleGenerateImage}
                         disabled={
-                            activeView === 'text' ? (isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)) : 
+                            activeView === 'texts' ? (isSubmittingFollowUp || (!followUpQuestion.trim() && !followUpFileDataUri)) : 
                             (isGeneratingImage || !imagePrompt.trim())
                         }
                         >
                         {(isSubmittingFollowUp || isGeneratingImage) ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
                     </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>{activeView === 'text' ? 'Send follow-up' : 'Generate Image'}</p></TooltipContent>
+                <TooltipContent><p>{activeView === 'texts' ? 'Send follow-up' : 'Generate Image'}</p></TooltipContent>
             </Tooltip>
            </TooltipProvider>
         </div>
@@ -884,7 +927,7 @@ export default function AiResultsPage() {
         onChange={handleFollowUpFileChange}
         className="hidden"
       />
-      {selectedFollowUpFile && activeView === 'text' && (
+      {selectedFollowUpFile && activeView === 'texts' && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-20 bg-secondary/90 text-sm text-muted-foreground p-2 rounded-md border shadow-md flex items-center gap-2 max-w-xs pointer-events-auto">
           <FileText className="mr-1 h-4 w-4 text-primary shrink-0" />
           <span className="truncate" title={selectedFollowUpFile.name}>{selectedFollowUpFile.name}</span>
@@ -896,3 +939,4 @@ export default function AiResultsPage() {
     </div>
   );
 }
+
