@@ -34,16 +34,15 @@ import { scheduleEmailNotificationAction, type ScheduleEmailNotificationFormStat
 import { auth } from '@/lib/firebase';
 import { Calendar } from "@/components/ui/calendar"; // ShadCN Calendar
 
-type DayOfWeek = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat'; // Sunday as 0
+type DayOfWeek = 'Sun' | 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri' | 'Sat';
 const daysOfWeek: DayOfWeek[] = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayMapping: Record<DayOfWeek, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
-
 
 type RepeatType = 'none' | 'daily' | 'weekly';
 
 interface RepeatSetting {
   type: RepeatType;
-  days?: DayOfWeek[]; // Only for 'weekly', stores names like 'Mon', 'Tue'
+  days?: DayOfWeek[];
 }
 
 interface TimetableEvent {
@@ -90,7 +89,7 @@ function TimetableContent() {
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [date, setDate] = useState(''); // Stores "yyyy-MM-dd"
+  const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [notifyByEmail, setNotifyByEmail] = useState(false);
   const [associatedResultText, setAssociatedResultText] = useState('');
@@ -109,7 +108,6 @@ function TimetableContent() {
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedCalendarDate, setSelectedCalendarDate] = useState<Date | undefined>(new Date());
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
-
 
    useEffect(() => {
     if (isLoggedIn) {
@@ -165,7 +163,6 @@ function TimetableContent() {
     setEditingEvent(null);
     setIsFormOpen(false);
   }, []);
-
 
   useEffect(() => {
     const action = searchParams.get('action');
@@ -227,7 +224,7 @@ function TimetableContent() {
       id: editingEvent ? editingEvent.id : crypto.randomUUID(),
       title,
       description,
-      date, // Stored as "yyyy-MM-dd" string
+      date,
       time,
       associatedResult: associatedResultText || undefined,
       originalFormat: currentOriginalFormat || (editingEvent ? editingEvent.originalFormat : 'Unknown'),
@@ -248,7 +245,7 @@ function TimetableContent() {
         formData.append('eventId', newEvent.id);
         formData.append('userEmail', auth.currentUser.email);
         formData.append('eventTitle', newEvent.title);
-        formData.append('eventDateTime', `${newEvent.date}T${newEvent.time}`); // ISO 8601 format
+        formData.append('eventDateTime', `${newEvent.date}T${newEvent.time}`);
         
         startScheduleEmailTransition(() => {
             runScheduleEmailAction(formData);
@@ -262,7 +259,7 @@ function TimetableContent() {
     setEditingEvent(event);
     setTitle(event.title);
     setDescription(event.description);
-    setDate(event.date); // Expects "yyyy-MM-dd"
+    setDate(event.date);
     setTime(event.time);
     setNotifyByEmail(isSubscribed ? (event.notifyByEmail || false) : false);
     setAssociatedResultText(event.associatedResult || '');
@@ -309,7 +306,6 @@ function TimetableContent() {
     if (!repeat || repeat.type === 'none') return '';
     if (repeat.type === 'daily') return 'Repeats: Daily';
     if (repeat.type === 'weekly' && repeat.days && repeat.days.length > 0) {
-        // Sort days according to daysOfWeek for consistent display
         const sortedDays = repeat.days.sort((a, b) => daysOfWeek.indexOf(a) - daysOfWeek.indexOf(b));
         return `Repeats: Weekly on ${sortedDays.join(', ')}`;
     }
@@ -317,31 +313,29 @@ function TimetableContent() {
   };
   
   const getEventDatesForCalendar = (event: TimetableEvent, month: Date): Date[] => {
-    const eventBaseDate = parseISO(event.date); // Original start date of the event
+    const eventBaseDate = parseISO(event.date);
     const datesInMonth: Date[] = [];
-    
-    // Determine the range of dates to check within the currently displayed month
     const firstDayOfMonth = startOfDay(new Date(month.getFullYear(), month.getMonth(), 1));
-    const lastDayOfMonth = startOfDay(new Date(month.getFullYear(), month.getMonth() + 1, 0)); // Last day of current month
+    const lastDayOfMonth = startOfDay(new Date(month.getFullYear(), month.getMonth() + 1, 0));
 
     if (event.repeat?.type === 'none') {
-      if (isSameMonth(eventBaseDate, month) && eventBaseDate >= startOfDay(new Date())) { // Only show if in current month and not past
+      if (isSameMonth(eventBaseDate, month) && eventBaseDate >= startOfDay(new Date())) {
         datesInMonth.push(eventBaseDate);
       }
     } else if (event.repeat?.type === 'daily') {
       let currentDate = eventBaseDate > firstDayOfMonth ? eventBaseDate : firstDayOfMonth;
       while (currentDate <= lastDayOfMonth) {
-        if (currentDate >= eventBaseDate) { // Ensure we don't show dates before the event's original start
+        if (currentDate >= eventBaseDate) {
           datesInMonth.push(startOfDay(currentDate));
         }
         currentDate = addDays(currentDate, 1);
       }
     } else if (event.repeat?.type === 'weekly' && event.repeat.days && event.repeat.days.length > 0) {
-      const repeatDaysNumbers = event.repeat.days.map(d => dayMapping[d]); // Convert 'Mon' to 1, 'Sun' to 0 etc.
+      const repeatDaysNumbers = event.repeat.days.map(d => dayMapping[d]);
       let currentDate = eventBaseDate > firstDayOfMonth ? eventBaseDate : firstDayOfMonth;
       
       while (currentDate <= lastDayOfMonth) {
-        if (currentDate >= eventBaseDate && repeatDaysNumbers.includes(getDay(currentDate))) { // getDay() returns 0 for Sun, 1 for Mon...
+        if (currentDate >= eventBaseDate && repeatDaysNumbers.includes(getDay(currentDate))) {
           datesInMonth.push(startOfDay(currentDate));
         }
         currentDate = addDays(currentDate, 1);
@@ -349,7 +343,6 @@ function TimetableContent() {
     }
     return datesInMonth;
   };
-
 
   const calendarModifiers = {
     eventDay: events.reduce((acc, event) => {
@@ -365,7 +358,7 @@ function TimetableContent() {
   const filteredEventsForSelectedDate = events.filter(event => {
     if (!selectedCalendarDate) return false;
     const selectedDayStart = startOfDay(selectedCalendarDate);
-    const eventBaseDate = parseISO(event.date); // Original start date of the event
+    const eventBaseDate = parseISO(event.date);
     let isMatch = false;
 
     if (event.repeat?.type === 'none') {
@@ -373,11 +366,10 @@ function TimetableContent() {
     } else if (event.repeat?.type === 'daily') {
         isMatch = selectedDayStart >= startOfDay(eventBaseDate);
     } else if (event.repeat?.type === 'weekly' && event.repeat.days && event.repeat.days.length > 0) {
-        const repeatDaysNumbers = event.repeat.days.map(d => dayMapping[d]); // e.g., [1, 3] for Mon, Wed
-        isMatch = selectedDayStart >= startOfDay(eventBaseDate) && repeatDaysNumbers.includes(getDay(selectedDayStart)); // getDay() is 0 for Sun
+        const repeatDaysNumbers = event.repeat.days.map(d => dayMapping[d]);
+        isMatch = selectedDayStart >= startOfDay(eventBaseDate) && repeatDaysNumbers.includes(getDay(selectedDayStart));
     }
     
-    // Diagnostic log
     console.log(
         `Filtering Event: "${event.title}" (ID: ${event.id})`,
         { 
@@ -390,15 +382,12 @@ function TimetableContent() {
             isMatch 
         }
     );
-
     return isMatch;
   }).sort((a,b) => {
-    // Sort by time for the selected day
     const timeA = parseISO(`1970-01-01T${a.time}`);
     const timeB = parseISO(`1970-01-01T${b.time}`);
     return timeA.getTime() - timeB.getTime();
   });
-
 
   const renderEventCard = (event: TimetableEvent, index: number, isForSelectedDateView: boolean = false) => (
     <Card key={`${event.id}-${index}`} className="bg-secondary/50 border-border hover:border-primary/50 transition-colors">
@@ -407,8 +396,8 @@ function TimetableContent() {
             <CardTitle className="text-lg text-primary">{event.title}</CardTitle>
             <p className="text-sm text-muted-foreground">
             {isForSelectedDateView 
-                ? `Time: ${format(parseISO(\`1970-01-01T\${event.time}\`), 'p')}` 
-                : `${format(parseISO(event.date), 'EEE, MMM d, yyyy')} at ${format(parseISO(\`1970-01-01T\${event.time}\`), 'p')}`
+                ? `Time: ${format(parseISO(`1970-01-01T${event.time}`), 'p')}` 
+                : `${format(parseISO(event.date), 'EEE, MMM d, yyyy')} at ${format(parseISO(`1970-01-01T${event.time}`), 'p')}`
             }
             </p>
             {event.originalFormat && event.originalFormat !== "Unknown" && (
@@ -479,7 +468,6 @@ function TimetableContent() {
         )}
     </Card>
   );
-
 
   return (
     <div className="container mx-auto py-8 px-4">
@@ -615,7 +603,7 @@ function TimetableContent() {
                     <div className="space-y-3 pt-2">
                     <Label className="text-foreground">Repeat on (Weekly)</Label>
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2">
-                        {daysOfWeek.map(day => ( // Sun, Mon, Tue...
+                        {daysOfWeek.map(day => (
                         <div key={day} className="flex items-center space-x-2">
                             <Checkbox
                             id={`repeat-day-${day}`}
@@ -681,7 +669,6 @@ function TimetableContent() {
                 </div>
                 {isSubscribed && notifyByEmail && <p className="text-xs text-muted-foreground mt-1">A conceptual email notification will be logged for this event.</p>}
                 {isSubscribed && repeatType !== 'none' && <p className="text-xs text-muted-foreground mt-1">Conceptual: This event would repeat {repeatType}{repeatType === 'weekly' && selectedWeeklyDays.length > 0 ? ` on ${selectedWeeklyDays.join(', ')}` : ''}.</p>}
-
 
                 <div className="flex justify-end space-x-3">
                     <Button type="button" variant="ghost" onClick={resetForm}>Cancel</Button>
@@ -801,4 +788,3 @@ function TimetableContent() {
     </div>
   );
 }
-
