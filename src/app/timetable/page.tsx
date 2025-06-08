@@ -116,24 +116,53 @@ function TimetableContent() {
         try {
             const parsedEvents = JSON.parse(storedEvents) as TimetableEvent[];
             if (Array.isArray(parsedEvents)) {
-                 setEvents(parsedEvents.filter(event => event && typeof event.id === 'string')); 
+                const now = new Date();
+                // Filter out past, non-repeating events
+                const currentEvents = parsedEvents.filter(event => {
+                    if (!event || typeof event.id !== 'string' || !event.date || !event.time) return false; // Basic sanity check
+
+                    const isRepeating = event.repeat && event.repeat.type !== 'none';
+                    if (isRepeating) {
+                    return true; // Keep all repeating events
+                    }
+
+                    // For non-repeating events, check if they are in the past
+                    try {
+                    const eventDateTime = parseISO(`${event.date}T${event.time}`);
+                    return eventDateTime >= now; // Keep if event time is now or in the future
+                    } catch (parseError) {
+                    console.error(`Error parsing date/time for event ${event.id}: ${event.date}T${event.time}`, parseError);
+                    return false; // If parsing fails, better to remove it
+                    }
+                });
+
+                setEvents(currentEvents.sort((a, b) => new Date(a.date + 'T' + a.time).getTime() - new Date(b.date + 'T' + b.time).getTime()));
+                // Update localStorage with the filtered list
+                localStorage.setItem('timetableEvents', JSON.stringify(currentEvents));
+            } else {
+                 localStorage.removeItem('timetableEvents'); 
             }
         } catch (e) {
-            console.error("Failed to parse timetable events from localStorage", e);
+            console.error("Failed to parse timetable events from localStorage or filter them", e);
             localStorage.removeItem('timetableEvents'); 
         }
       }
     } else {
       setEvents([]);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoggedIn]);
 
   useEffect(() => {
     if (isLoggedIn && events.length > 0) {
       localStorage.setItem('timetableEvents', JSON.stringify(events));
     } else if (isLoggedIn && events.length === 0) {
-      if (localStorage.getItem('timetableEvents')) {
-        localStorage.removeItem('timetableEvents');
+      // This ensures that if all events are deleted or filtered out, localStorage is cleared.
+      if (localStorage.getItem('timetableEvents')) { 
+          const stored = JSON.parse(localStorage.getItem('timetableEvents') || '[]');
+          if (stored.length > 0) { // Only remove if it wasn't already empty due to filtering
+            localStorage.removeItem('timetableEvents');
+          }
       }
     }
   }, [events, isLoggedIn]);
@@ -317,15 +346,17 @@ function TimetableContent() {
     const datesInMonth: Date[] = [];
     const firstDayOfMonth = startOfDay(new Date(month.getFullYear(), month.getMonth(), 1));
     const lastDayOfMonth = startOfDay(new Date(month.getFullYear(), month.getMonth() + 1, 0));
+    const today = startOfDay(new Date()); // For filtering past non-repeating events
 
     if (event.repeat?.type === 'none') {
-      if (isSameMonth(eventBaseDate, month) && eventBaseDate >= startOfDay(new Date())) {
+      // Only add if it's in the current month AND not in the past
+      if (isSameMonth(eventBaseDate, month) && eventBaseDate >= today) {
         datesInMonth.push(eventBaseDate);
       }
     } else if (event.repeat?.type === 'daily') {
       let currentDate = eventBaseDate > firstDayOfMonth ? eventBaseDate : firstDayOfMonth;
       while (currentDate <= lastDayOfMonth) {
-        if (currentDate >= eventBaseDate) {
+        if (currentDate >= eventBaseDate) { // Ensure it's on or after the start date
           datesInMonth.push(startOfDay(currentDate));
         }
         currentDate = addDays(currentDate, 1);
@@ -335,7 +366,7 @@ function TimetableContent() {
       let currentDate = eventBaseDate > firstDayOfMonth ? eventBaseDate : firstDayOfMonth;
       
       while (currentDate <= lastDayOfMonth) {
-        if (currentDate >= eventBaseDate && repeatDaysNumbers.includes(getDay(currentDate))) {
+         if (currentDate >= eventBaseDate && repeatDaysNumbers.includes(getDay(currentDate))) { // Ensure on/after start date
           datesInMonth.push(startOfDay(currentDate));
         }
         currentDate = addDays(currentDate, 1);
@@ -358,6 +389,16 @@ function TimetableContent() {
   const filteredEventsForSelectedDate = events.filter(event => {
     if (!selectedCalendarDate) return false;
     const selectedDayStart = startOfDay(selectedCalendarDate);
+    
+    // Do not show events for past selected dates if the event itself would be considered past.
+    if (selectedDayStart < startOfDay(new Date()) && (event.repeat?.type === 'none')) {
+        try {
+            const eventDateTime = parseISO(`${event.date}T${event.time}`);
+            if (eventDateTime < new Date()) return false; // Don't match if base non-repeating event is past
+        } catch { return false; }
+    }
+
+
     const eventBaseDate = parseISO(event.date);
     let isMatch = false;
 
@@ -370,18 +411,18 @@ function TimetableContent() {
         isMatch = selectedDayStart >= startOfDay(eventBaseDate) && repeatDaysNumbers.includes(getDay(selectedDayStart));
     }
     
-    console.log(
-        `Filtering Event: "${event.title}" (ID: ${event.id})`,
-        { 
-            eventDate: event.date, 
-            eventRepeat: event.repeat,
-            selectedDay: format(selectedDayStart, 'yyyy-MM-dd EEE'),
-            selectedDayNumber: getDay(selectedDayStart),
-            eventBaseDate: format(eventBaseDate, 'yyyy-MM-dd EEE'),
-            repeatDaysNumbers: event.repeat?.type === 'weekly' ? event.repeat.days?.map(d => dayMapping[d]) : 'N/A',
-            isMatch 
-        }
-    );
+    // console.log(
+    //     `Filtering Event: "${event.title}" (ID: ${event.id})`,
+    //     { 
+    //         eventDate: event.date, 
+    //         eventRepeat: event.repeat,
+    //         selectedDay: format(selectedDayStart, 'yyyy-MM-dd EEE'),
+    //         selectedDayNumber: getDay(selectedDayStart),
+    //         eventBaseDate: format(eventBaseDate, 'yyyy-MM-dd EEE'),
+    //         repeatDaysNumbers: event.repeat?.type === 'weekly' ? event.repeat.days?.map(d => dayMapping[d]) : 'N/A',
+    //         isMatch 
+    //     }
+    // );
     return isMatch;
   }).sort((a,b) => {
     const timeA = parseISO(`1970-01-01T${a.time}`);
